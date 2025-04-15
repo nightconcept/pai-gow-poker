@@ -1,6 +1,8 @@
 # Multiplayer Pai Gow Poker (Face-Up Variant)
-
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/your-username/your-repo) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ## Overview
+ 
+ [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ 
+ ## Overview
 
 This project is a web-based, multiplayer version of **Pai Gow Poker** (specifically the **Face-Up** variant for the initial version). It allows 2-7 friends to connect to a game session and play against an AI dealer using a mock currency called DannyBucks (DB).
 
