@@ -5,11 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev:frontend": "pnpm --filter frontend dev",
-    "dev:backend": "pnpm --filter pai-gow-poker-backend dev",
+    "dev:backend": "pnpm --filter backend dev",
     "dev": "pnpm run \"/^dev:.*/\"",
 
     "build:frontend": "pnpm --filter frontend build",
-    "build:backend": "pnpm --filter pai-gow-poker-backend build",
+    "build:backend": "pnpm --filter backend build",
     "build": "pnpm run build:frontend && pnpm run build:backend",
 
     "lint": "pnpm -r --parallel lint",

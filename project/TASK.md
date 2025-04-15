@@ -14,14 +14,14 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 
 ### MVP Sub-Phase 1: Backend Foundation & Core Structures
 
-1.  **[ ] Backend: Initialize Node.js Project**
+1.  **[x] Backend: Initialize Node.js Project**
     * Verify the Node.js project structure in apps/backend.
     * Verify `package.json` exists in the backend folder.
     * Install core dependencies (`ws`).
     * Set up basic project scripts (e.g., `start`, `dev`).
     * **[ ] Verify:** Project structure exists, dependencies install (`pnpm install` or `yarn`), basic server file runs without errors using `node server.js` (or similar).
 
-2.  **[ ] Backend: Implement Basic WebSocket Server**
+2.  **[x] Backend: Implement Basic WebSocket Server**
     * Use the `ws` library to create a WebSocket server.
     * Implement server startup and listening on a configured port.
     * Handle basic client connection (`connection`) events.
@@ -30,13 +30,13 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Implement basic message receiving (`message`) handler.
     * **[ ] Verify:** Server starts, accepts WebSocket connection from a test client (e.g., browser console, Postman). Server logs connect/disconnect events. Basic predefined messages can be sent from client to server and server can broadcast a simple message back to the client(s).
 
-3.  **[ ] Backend: Define In-Memory State (Player, GameTable)**
+3.  **[x] Backend: Define In-Memory State (Player, GameTable)**
     * Define JavaScript classes or object structures for `Player` (id, username, dannyBucks, currentHand, etc.) and `GameTable` (id, hostId, players array, gameState, deck, dealerHand, etc.) for a single table scenario.
     * Implement logic to add a new `Player` object to the `GameTable.players` array when a WebSocket connection is established (initially without username).
     * Implement logic to remove the `Player` object from the `GameTable.players` array on WebSocket disconnection.
     * **[ ] Verify:** Inspect server logs or use debugger to confirm `Player` objects are added/removed from the in-memory `GameTable` state correctly upon client connect/disconnect. Data structures match the PRD definitions.
 
-4.  **[ ] Backend: Implement Username Handling & Uniqueness Check**
+4.  **[x] Backend: Implement Username Handling & Uniqueness Check**
     * Implement message handling for `type: 'setUsername'`.
     * When the message is received, check if the proposed `payload.username` is unique among *currently connected* players in the `GameTable.players` array.
     * If unique, assign the username to the corresponding `Player` object and send a success response message (e.g., `{ type: 'usernameSuccess', payload: { username: '...' } }`) back to that client.
@@ -48,7 +48,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 
 *(Depends on MVP Sub-Phase 1)*
 
-5.  **[ ] Backend: Implement Deck Creation, Shuffling, Dealing**
+5.  **[x] Backend: Implement Deck Creation, Shuffling, Dealing**
     * Define the `Card` structure (rank, suit).
     * Create a function to generate a standard 53-card deck (including Joker).
     * Implement a shuffling algorithm (e.g., Fisher-Yates).
@@ -57,7 +57,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Broadcast the player's hand to the respective client and potentially a generic "dealing complete" message.
     * **[ ] Verify:** Trigger dealing logic. Inspect server state/logs to confirm deck has 53 unique cards, shuffling appears random, each player and dealer receives exactly 7 cards, and hands are stored correctly.
 
-6.  **[ ] Backend: Implement Dealer "House Way" & Ace-High Push Logic**
+6.  **[x] Backend: Implement Dealer "House Way" & Ace-High Push Logic**
     * Implement the "House Way" logic (as defined in Appendix/PRD) for the AI dealer to partition its 7 cards into a 5-card high hand and 2-card low hand. Pay attention to Joker rules and special cases (Pairs, Aces, etc.).
     * Implement hand ranking logic necessary for the House Way decisions and Ace-High check.
     * Immediately after dealing and *before* player action, set the dealer's hand using the House Way.
@@ -66,7 +66,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Broadcast the dealer's *revealed* 7 cards, the dealer's *set* high/low hands, and the game state (e.g., `'dealerSet'`, `'aceHighPush'`, or `'playerTurn'`) to all clients.
     * **[ ] Verify:** Test with various known 7-card hands (including Jokers, pairs, straights, flushes) and verify the dealer sets its hand according to the defined House Way rules. Verify Ace-High Pai Gow hands are correctly identified. Verify the correct game state and dealer hand information is broadcast.
 
-7.  **[ ] Backend: Implement Basic Betting & DB Balance Logic**
+7.  **[x] Backend: Implement Basic Betting & DB Balance Logic**
     * Initialize each `Player` object with a starting `dannyBucks` balance upon joining (after setting username).
     * Implement message handling for `type: 'placeBet'`. For MVP, assume a fixed bet amount.
     * Before dealing, allow players to place their bet. Deduct the fixed bet amount from the player's `dannyBucks` balance. Store the `currentBet`.
