@@ -1,503 +1,450 @@
-import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
 import {
 	connectWebSocket,
-	sendMessage,
+	sendWebSocketMessage,
 	closeWebSocket,
-	addMessageListener,
 	connectionStatus,
-	resetWebSocketState_TEST_ONLY // Import the reset function
+	connectionError,
+	type WebSocketMessage,
+	type ConnectionStatus,
 } from './websocket';
+import {
+	usernameStore,
+	playersStore,
+	dannyBucksStore,
+	myHandStore,
+	dealerHandStore,
+	gameStateStore,
+	lastResultStore,
+	type PlayerInfo,
+	type Card,
+	type DealerHand,
+	type GameState,
+	type RoundResult,
+} from '$lib/stores/game';
 
 // --- Mock WebSocket ---
 let mockWebSocketInstance: MockWebSocket | null = null;
 
-// --- Mock CloseEvent ---
-// Vitest/Node doesn't have CloseEvent globally
-class MockCloseEvent extends Event {
-	code: number;
-	reason: string;
-	wasClean: boolean;
-	constructor(type: string, options?: CloseEventInit) {
-		super(type);
-		this.code = options?.code ?? 1000;
-		this.reason = options?.reason ?? '';
-		this.wasClean = options?.wasClean ?? false;
-	}
-}
+interface MockCloseEventData { code: number; reason: string; wasClean: boolean; }
 
 class MockWebSocket {
-	// Static properties for tracking instances
 	static instances: MockWebSocket[] = [];
 	static mockClear() {
 		MockWebSocket.instances = [];
 		mockWebSocketInstance = null;
 	}
 
-	// Instance properties
 	readyState: number = WebSocket.CONNECTING;
 	url: string;
 	onopen: (() => void) | null = null;
 	onmessage: ((event: { data: string }) => void) | null = null;
 	onerror: ((event: Event) => void) | null = null;
-	onclose: ((event: CloseEvent) => void) | null = null;
-
-	// Mock methods as spies
-	send = vi.fn();
-	close = vi.fn((code?: number, reason?: string) => { // Accept code/reason
-		if (this.readyState === WebSocket.CLOSING || this.readyState === WebSocket.CLOSED) {
-			return;
-		}
-		this.readyState = WebSocket.CLOSING;
-		// Simulate synchronous close event for simpler testing
-		this.readyState = WebSocket.CLOSED;
-		this.onclose?.(new MockCloseEvent('close', { code: code ?? 1000, reason: reason ?? 'Normal closure', wasClean: code === 1000 }));
-	});
+	onclose: ((event: MockCloseEventData) => void) | null = null;
+	sentMessages: string[] = [];
 
 	constructor(url: string) {
 		this.url = url;
 		MockWebSocket.instances.push(this);
-		mockWebSocketInstance = this; // Track the latest instance
-		// Do not simulate async connection opening automatically
-		// setTimeout(() => this._simulateOpen(), 0);
+		mockWebSocketInstance = this;
+		// console.log(`MockWebSocket created for ${url}`);
 	}
 
-	// --- Simulation Methods ---
-	_simulateOpen() {
-		if (this.readyState === WebSocket.CONNECTING) {
-			this.readyState = WebSocket.OPEN;
-			this.onopen?.();
+	send(data: string) {
+		// console.log(`MockWebSocket send: ${data}`);
+		if (this.readyState !== WebSocket.OPEN) {
+			// Simulate browser error more closely
+			throw new Error(`InvalidStateError: Failed to execute 'send' on 'WebSocket': Still in state ${this.readyState === WebSocket.CONNECTING ? 'CONNECTING' : 'CLOSING/CLOSED'}`);
+		}
+		this.sentMessages.push(data);
+	}
+
+	// Make close synchronous for easier testing of immediate effects
+	close(code?: number, reason?: string) {
+		// console.log(`MockWebSocket close called with code ${code}, reason ${reason}`);
+		if (this.readyState === WebSocket.CLOSING || this.readyState === WebSocket.CLOSED) {
+			return;
+		}
+		const previousState = this.readyState;
+		this.readyState = WebSocket.CLOSING; // State changes immediately
+		this.readyState = WebSocket.CLOSED; // State changes immediately
+
+		// Trigger onclose callback synchronously
+		// Only trigger if it wasn't already closed/closing when called
+		if (previousState !== WebSocket.CLOSED && previousState !== WebSocket.CLOSING && this.onclose) {
+			this.onclose({
+				code: code ?? 1000,
+				reason: reason ?? '',
+				wasClean: code === 1000 || code === undefined, // Assume clean unless specific code given
+			});
+		}
+		if (mockWebSocketInstance === this) {
+			mockWebSocketInstance = null;
 		}
 	}
 
-	// Manually trigger the open state for tests
-	_triggerOpen() {
-		this._simulateOpen();
+	// --- Test Simulation Methods ---
+	simulateOpen() {
+		// console.log('MockWebSocket simulating open');
+		if (this.readyState !== WebSocket.CONNECTING) return; // Can only open if connecting
+		this.readyState = WebSocket.OPEN;
+		if (this.onopen) this.onopen();
 	}
 
-	_simulateMessage(data: object) {
-		if (this.readyState === WebSocket.OPEN) {
-			this.onmessage?.({ data: JSON.stringify(data) });
-		} else {
-            console.warn(`MockWebSocket: Cannot simulate message in state ${this.readyState}`);
-        }
+	simulateMessage(message: WebSocketMessage) {
+		// console.log('MockWebSocket simulating message', message);
+		if (this.readyState !== WebSocket.OPEN) return; // Can only receive if open
+		if (this.onmessage) this.onmessage({ data: JSON.stringify(message) });
 	}
 
-	_simulateError() {
-		// Should only happen while connecting or open
-		if (this.readyState === WebSocket.CONNECTING || this.readyState === WebSocket.OPEN) {
-			const errorEvent = new Event('error');
-			// Call error handler first
-			this.onerror?.(errorEvent);
-			// THEN update state and schedule close, only if the error handler didn't already close it
-			if (this.readyState === WebSocket.CONNECTING || this.readyState === WebSocket.OPEN) {
-				this.readyState = WebSocket.CLOSED;
-				// Simulate the close event that follows error
-				setTimeout(() => {
-					// Check if onclose still exists, might have been cleared by reset
-					this.onclose?.(new MockCloseEvent('close', { code: 1006, reason: 'Abnormal Closure', wasClean: false }));
-				}, 0);
-			}
+	simulateError() {
+		// console.log('MockWebSocket simulating error');
+		const wasConnectingOrOpen = this.readyState === WebSocket.CONNECTING || this.readyState === WebSocket.OPEN;
+		this.readyState = WebSocket.CLOSED; // Error usually leads to closed state
+		if (this.onerror) this.onerror(new Event('error'));
+		// Trigger close synchronously after error
+		if (wasConnectingOrOpen && this.onclose) {
+			this.onclose({ code: 1006, reason: 'Simulated error', wasClean: false });
 		}
+		if (mockWebSocketInstance === this) mockWebSocketInstance = null;
 	}
 
-	_simulateClose(code = 1000, reason = 'Mock Close') {
-		if (this.readyState !== WebSocket.CLOSING && this.readyState !== WebSocket.CLOSED) {
-			this.readyState = WebSocket.CLOSING;
-			// Simulate synchronous close event for simpler testing
-			this.readyState = WebSocket.CLOSED;
-			this.onclose?.(new MockCloseEvent('close', { code, reason, wasClean: code === 1000 }));
+	simulateServerClose(code = 1005, reason = 'Server shutdown') {
+		// console.log(`MockWebSocket simulating server close (${code}: ${reason})`);
+		if (this.readyState === WebSocket.CLOSED || this.readyState === WebSocket.CLOSING) return; // Already closed/closing
+
+		const wasClean = code === 1000;
+		this.readyState = WebSocket.CLOSED;
+		if (this.onclose) {
+			this.onclose({ code: code, reason: reason, wasClean: wasClean });
 		}
+		if (mockWebSocketInstance === this) mockWebSocketInstance = null;
 	}
 }
 
 // --- Vitest Setup ---
 beforeEach(() => {
-	// Set test mode (Vite specific)
-	if (import.meta.env) {
-        (import.meta.env as any).MODE = 'test';
-    } else {
-        // Fallback for environments without import.meta.env
-        process.env.NODE_ENV = 'test'; // Or appropriate mechanism
-    }
-
-
-	// Reset service state FIRST
-	resetWebSocketState_TEST_ONLY();
-
-	// Clear mocks and stub global WebSocket
-	MockWebSocket.mockClear();
 	vi.stubGlobal('WebSocket', MockWebSocket);
-	vi.stubGlobal('CloseEvent', MockCloseEvent); // Stub CloseEvent
+	// Reset stores
+	connectionStatus.set('closed');
+	connectionError.set(null);
+	usernameStore.set(null);
+	playersStore.set([]);
+	dannyBucksStore.set(0);
+	myHandStore.set(null);
+	dealerHandStore.set(null);
+	// gameStateStore is set by subscription, start connectionStatus closed
+	// gameStateStore.set('Connecting'); // Let subscription handle initial state
+	lastResultStore.set(null);
 
-	// Use fake timers
-	vi.useFakeTimers();
+	MockWebSocket.mockClear();
+	// Suppress console logs during tests unless needed for debugging
+	// vi.spyOn(console, 'log').mockImplementation(() => {});
+	vi.spyOn(console, 'warn').mockImplementation(() => {});
+	vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
-	// Ensure timers are cleared and globals restored
-	vi.clearAllTimers();
+	closeWebSocket(); // Ensure state is reset
 	vi.unstubAllGlobals();
-    // Reset test mode
-    if (import.meta.env) {
-	    (import.meta.env as any).MODE = 'development'; // Or your default
-    } else {
-        process.env.NODE_ENV = 'development';
-    }
-    // Final reset just in case a test failed mid-way
-    resetWebSocketState_TEST_ONLY();
+	vi.restoreAllMocks(); // Use restoreAllMocks to clean up spies
 });
 
-// --- Tests ---
-describe('WebSocket Service', () => {
-	it('should set status to connecting immediately and connected on open', async () => {
-		expect(get(connectionStatus)).toBe('disconnected'); // After reset
-		const connectPromise = connectWebSocket();
-		// Status should change synchronously
-		expect(get(connectionStatus)).toBe('connecting');
+// --- Test Suites ---
+describe('websocket service', () => {
+	const testUrl = 'ws://localhost:8080';
 
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers(); // Advance timers if any other async ops exist
-		await connectPromise; // Wait for the promise to resolve
-
-		expect(get(connectionStatus)).toBe('connected');
-		expect(MockWebSocket.instances.length).toBe(1); // Verify instance creation
-		expect(mockWebSocketInstance?.url).toBe('ws://localhost:8080');
+	it('should initialize with closed status and disconnected game state', () => {
+		// Initial state before connectWebSocket is called
+		expect(get(connectionStatus)).toBe('closed');
+		expect(get(gameStateStore)).toBe('Disconnected'); // Set by subscription to 'closed'
+		expect(get(connectionError)).toBeNull();
 	});
 
-	it('should update connection status to "error" on connection error', async () => {
-		expect(get(connectionStatus)).toBe('disconnected');
-		const connectPromise = connectWebSocket();
-		expect(get(connectionStatus)).toBe('connecting');
-
-		// Simulate an error *during* connection attempt
-		mockWebSocketInstance?._simulateError();
-		// vi.runAllTimers(); // Advance timers to process error and subsequent close
-
-		// Check promise rejection *after* advancing timers
-		// Expect rejection with the generic error message from the handler
-		await expect(connectPromise).rejects.toThrow('WebSocket connection error');
-		// Ensure all timers (including the one in _simulateError for onclose) have run
-		await vi.runAllTimersAsync();
-		expect(get(connectionStatus), 'Status should be error after simulation').toBe('error'); // Final state should remain 'error'
-
-		// Verify that calling closeWebSocket again does nothing because the instance is gone
-		// Keep reference to the original instance to check its spy
-		const originalInstance = MockWebSocket.instances[0]; // Get the instance created
-		expect(originalInstance.close).toHaveBeenCalledTimes(0); // Should not have been called directly yet by closeWebSocket()
-		      closeWebSocket();
-		// The close method on the original instance should still not have been called *again* by closeWebSocket
-		      expect(originalInstance.close).toHaveBeenCalledTimes(0); // Error simulation doesn't call instance.close directly
-	});
-
-	it('should update connection status to "disconnected" on server close', async () => {
-		const connectPromise = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers(); // Open connection
-		await connectPromise;
-		expect(get(connectionStatus)).toBe('connected');
-
-		const originalInstance = mockWebSocketInstance; // Capture instance before close simulation
-		mockWebSocketInstance?._simulateClose(1001, "Going Away"); // Simulate server closing connection
-		// await vi.runAllTimersAsync(); // No longer needed as close is sync
-
-		await vi.waitFor(() => {
-			expect(get(connectionStatus), 'Status should be disconnected after server close').toBe('disconnected'); // Final state
+	describe('connectWebSocket', () => {
+		it('should set status to connecting and game state to Connecting', () => {
+			connectWebSocket(testUrl);
+			expect(get(connectionStatus)).toBe('connecting');
+			expect(get(gameStateStore)).toBe('Connecting'); // Set by subscription
+			expect(get(connectionError)).toBeNull();
+			expect(MockWebSocket.instances.length).toBe(1);
+			expect(MockWebSocket.instances[0].url).toBe(testUrl);
 		});
 
-		// Verify that calling closeWebSocket again does nothing
-		      closeWebSocket();
-		// The close method on the original instance should only have been called once (by _simulateClose)
-		      expect(originalInstance?.close).toHaveBeenCalledTimes(1);
-	});
-
-	it('should send formatted JSON messages when connected', async () => {
-		const connectPromise = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers(); // Open connection
-		await connectPromise;
-		expect(get(connectionStatus)).toBe('connected'); // Ensure connected
-
-		const testPayload = { user: 'test', data: 123 };
-		sendMessage('testMessage', testPayload);
-
-		// Check the spy on the instance
-		expect(mockWebSocketInstance?.send).toHaveBeenCalledTimes(1);
-		expect(mockWebSocketInstance?.send).toHaveBeenCalledWith(
-			JSON.stringify({ type: 'testMessage', payload: testPayload })
-		);
-	});
-
-	it('should not send messages if not connected (initial state)', () => {
-		expect(get(connectionStatus)).toBe('disconnected'); // Verify initial state
-        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		sendMessage('testMessage', { data: 'should not send' });
-		// Instance shouldn't exist yet
-		expect(mockWebSocketInstance).toBeNull();
-		      expect(consoleErrorSpy).toHaveBeenCalledWith("WebSocket not open (state: null). Cannot send message type \"testMessage\"."); // Exact match
-		      consoleErrorSpy.mockRestore();
-	});
-
-		  it('should not send messages if connection is explicitly closed', async () => {
-        const connectPromise = connectWebSocket();
-  mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-        vi.runAllTimers();
-        await connectPromise;
-        expect(get(connectionStatus)).toBe('connected');
-
-        closeWebSocket(); // Close it via the service
-        // await vi.runAllTimersAsync(); // No longer needed as close is sync
-  await vi.waitFor(() => {
-   expect(get(connectionStatus), 'Status should be disconnected after explicit close').toBe('disconnected');
-  });
-        // Instance should be null after close and timer run
-        expect(mockWebSocketInstance).toBeNull(); // resetWebSocketState_TEST_ONLY should ensure this
-
-        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		sendMessage('testMessage', { data: 'should not send' });
-		      expect(consoleErrorSpy).toHaveBeenCalledWith("WebSocket not open (state: null). Cannot send message type \"testMessage\"."); // Exact match
-		      consoleErrorSpy.mockRestore();
-	});
-
-		  it('should not send messages if connection is connecting', async () => {
-		const connectPromise = connectWebSocket();
-		expect(get(connectionStatus)).toBe('connecting');
-		// Ensure the mock instance exists and is in the connecting state
-		const instanceDuringConnect = mockWebSocketInstance; // Capture instance
-		expect(instanceDuringConnect).not.toBeNull();
-		expect(instanceDuringConnect?.readyState, 'Mock readyState should be CONNECTING').toBe(WebSocket.CONNECTING);
-
-		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		sendMessage('testMessage', { data: 'should not send' });
-		// Assert on the captured instance's spy
-		expect(instanceDuringConnect?.send, 'send should not be called while connecting').not.toHaveBeenCalled();
-		expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("WebSocket not open (state: 0). Cannot send message type \"testMessage\"."));
-		consoleErrorSpy.mockRestore();
-
-		// Let connection finish for cleanup
-  // Trigger open *after* the send attempt while connecting
-  mockWebSocketInstance?._triggerOpen();
-        vi.runAllTimers();
-        await connectPromise;
-    });
-
-
-	it('should call registered message listeners for specific types', async () => {
-		const connectPromise = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers(); // Open connection
-		await connectPromise;
-
-		const listenerCallback = vi.fn();
-		const unsubscribe = addMessageListener('dataUpdate', listenerCallback);
-
-		const testData = { value: 42 };
-		mockWebSocketInstance?._simulateMessage({ type: 'dataUpdate', payload: testData });
-		vi.runAllTimers(); // Allow any async processing in handler
-
-		mockWebSocketInstance?._simulateMessage({ type: 'otherMessage', payload: { info: 'ignore' } });
-		vi.runAllTimers();
-
-		expect(listenerCallback).toHaveBeenCalledTimes(1);
-		expect(listenerCallback).toHaveBeenCalledWith(testData);
-
-		// Test unsubscribe
-		unsubscribe();
-		mockWebSocketInstance?._simulateMessage({ type: 'dataUpdate', payload: { value: 99 } });
-		vi.runAllTimers();
-		expect(listenerCallback).toHaveBeenCalledTimes(1); // Should not be called again
-	});
-
-	it('should call generic message listeners ("*")', async () => {
-		const connectPromise = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers();
-		await connectPromise;
-
-		const genericListenerCallback = vi.fn();
-		const unsubscribe = addMessageListener('*', genericListenerCallback);
-
-		const message1 = { type: 'dataUpdate', payload: { value: 42 } };
-		const message2 = { type: 'otherMessage', payload: { info: 'capture' } };
-
-		mockWebSocketInstance?._simulateMessage(message1);
-		vi.runAllTimers();
-		mockWebSocketInstance?._simulateMessage(message2);
-		vi.runAllTimers();
-
-		expect(genericListenerCallback).toHaveBeenCalledTimes(2);
-		expect(genericListenerCallback).toHaveBeenCalledWith(message1); // Generic listener gets full message
-		expect(genericListenerCallback).toHaveBeenCalledWith(message2);
-
-		unsubscribe();
-		mockWebSocketInstance?._simulateMessage({ type: 'newMessage', payload: {} });
-		vi.runAllTimers();
-		expect(genericListenerCallback).toHaveBeenCalledTimes(2); // Should not be called again
-	});
-
-	it('should handle closing the connection via closeWebSocket()', async () => {
-		const connectPromise = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers(); // Open connection
-		await connectPromise;
-		expect(get(connectionStatus)).toBe('connected');
-
-		closeWebSocket();
-		// Check if close was called on the mock instance's spy
-		expect(mockWebSocketInstance?.close).toHaveBeenCalledTimes(1);
-        expect(mockWebSocketInstance?.close).toHaveBeenCalledWith(1000, "Client initiated close");
-
-        // await vi.runAllTimersAsync(); // No longer needed as close is sync
-  await vi.waitFor(() => {
-   expect(get(connectionStatus), 'Status should be disconnected after client close').toBe('disconnected');
-  });
-        // The instance should be nullified internally by the onclose handler
-        // We test this by trying to close again
-		closeWebSocket();
-        // The close spy on the *original* instance should still only have been called once
-        expect(mockWebSocketInstance?.close).toHaveBeenCalledTimes(1);
-	});
-
-	it('should resolve immediately and not create new connection if already connected', async () => {
-		const connectPromise1 = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers();
-		await connectPromise1;
-		expect(get(connectionStatus)).toBe('connected');
-		expect(MockWebSocket.instances.length).toBe(1);
-		const instance1 = mockWebSocketInstance;
-
-		// Attempt to connect again
-		const connectPromise2 = connectWebSocket();
-		// Should resolve without needing timers and without creating new WS
-		await expect(connectPromise2).resolves.toBeUndefined();
-
-		expect(MockWebSocket.instances.length).toBe(1); // No new instance
-		expect(mockWebSocketInstance).toBe(instance1); // Same instance
-		expect(get(connectionStatus)).toBe('connected'); // State remains connected
-	});
-
-    it('should return the same promise if connection attempt is in progress', async () => {
-        const connectPromise1 = connectWebSocket();
-        expect(get(connectionStatus)).toBe('connecting');
-        expect(MockWebSocket.instances.length).toBe(1);
-
-        // Attempt to connect again while the first is still connecting
-        const connectPromise2 = connectWebSocket();
-
-        // Should return the same promise object AND not create a new instance
-        // expect(connectPromise2, "Should return the same promise instance").toBe(connectPromise1); // This check is unreliable
-        expect(MockWebSocket.instances.length, "Should not create a new WebSocket instance").toBe(1);
-
-        // Let the connection finish
-  mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-        vi.runAllTimers();
-        await connectPromise1; // Awaiting either promise works
-        expect(get(connectionStatus)).toBe('connected');
-    });
-
-
-	it('should allow reconnecting after being closed', async () => {
-		// Connect first time
-		const connectPromise1 = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers();
-		await connectPromise1;
-		expect(get(connectionStatus)).toBe('connected');
-		expect(MockWebSocket.instances.length).toBe(1);
-		const instance1 = mockWebSocketInstance;
-
-		// Close the connection
-		closeWebSocket();
-		// await vi.runAllTimersAsync(); // No longer needed as close is sync
-		await vi.waitFor(() => {
-			expect(get(connectionStatus), 'Status should be disconnected after closing before reconnect').toBe('disconnected');
+		it('should set status to open and game state to NeedsUsername when connection succeeds', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(get(connectionStatus)).toBe('open');
+			expect(get(gameStateStore)).toBe('NeedsUsername'); // Set by subscription
+			expect(get(connectionError)).toBeNull();
 		});
-		// Instance should be nullified internally after close + timer run
-		// We can check this by seeing if a new instance is created on reconnect
 
-		// Connect second time
-		const connectPromise2 = connectWebSocket();
-		expect(get(connectionStatus)).toBe('connecting'); // Status changes
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers(); // Process open
-		await connectPromise2;
-		expect(get(connectionStatus)).toBe('connected');
-		expect(MockWebSocket.instances.length).toBe(2); // New instance created
-		expect(mockWebSocketInstance).not.toBe(instance1); // Should be a different instance
-		expect(mockWebSocketInstance?.url).toBe('ws://localhost:8080');
+		it('should set status to error and game state to Error on connection error', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateError(); // Triggers onerror AND onclose synchronously
+			expect(get(connectionStatus)).toBe('error'); // Set by onerror handler
+			expect(get(gameStateStore)).toBe('Error'); // Set by subscription
+			expect(get(connectionError)).toBe('WebSocket connection error occurred.');
+		});
+
+		it('should set status to closed and game state to Disconnected when connection closes cleanly', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(get(connectionStatus)).toBe('open');
+			mockWebSocketInstance?.simulateServerClose(1000, 'Normal close'); // Triggers onclose synchronously
+			expect(get(connectionStatus)).toBe('closed'); // Set by onclose handler
+			expect(get(gameStateStore)).toBe('Disconnected'); // Set by subscription
+			expect(get(connectionError)).toBeNull(); // Error cleared on close
+		});
+
+		it('should set status to closed and game state to Disconnected when connection closes uncleanly', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(get(connectionStatus)).toBe('open');
+			mockWebSocketInstance?.simulateServerClose(1006, 'Abnormal close'); // Triggers onclose synchronously
+			expect(get(connectionStatus)).toBe('closed'); // Set by onclose handler
+			expect(get(gameStateStore)).toBe('Disconnected'); // Set by subscription
+			expect(get(connectionError)).toBeNull(); // Error still cleared on close
+		});
+
+
+		// --- Message Handler Tests ---
+		it('should update stores on "usernameSuccess" message', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			mockWebSocketInstance?.simulateMessage({ type: 'usernameSuccess', payload: { username: 'TestUser', dannyBucks: 500 } });
+			expect(get(usernameStore)).toBe('TestUser');
+			expect(get(dannyBucksStore)).toBe(500);
+		});
+
+		it('should update stores on "usernameFailure" message', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			mockWebSocketInstance?.simulateMessage({ type: 'usernameFailure', payload: { message: 'Name taken' } });
+			expect(get(usernameStore)).toBeNull();
+			expect(get(connectionError)).toBe('Name taken');
+			expect(get(gameStateStore)).toBe('NeedsUsername');
+		});
+
+		it('should update stores on "playerListUpdate" message', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			const players = [{ username: 'P1' }];
+			mockWebSocketInstance?.simulateMessage({ type: 'playerListUpdate', payload: { players } });
+			expect(get(playersStore)).toEqual(players);
+		});
+
+		it('should update stores on "gameStateUpdate" message (Betting)', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			lastResultStore.set({ outcome: 'Win', amount: 10 }); // Pre-set state
+			mockWebSocketInstance?.simulateMessage({ type: 'gameStateUpdate', payload: { state: 'Betting', dannyBucks: 990 } });
+			expect(get(gameStateStore)).toBe('Betting');
+			expect(get(dannyBucksStore)).toBe(990);
+			expect(get(lastResultStore)).toBeNull(); // Check reset
+		});
+
+		it('should update stores on "dealHand" message', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			const hand = [{ rank: 'K', suit: 'C' }];
+			mockWebSocketInstance?.simulateMessage({ type: 'dealHand', payload: { hand } });
+			expect(get(myHandStore)).toEqual(hand);
+		});
+
+		it('should update stores on "dealerHandUpdate" message', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			const dealerData = { revealed: [], highHand: [], lowHand: [], isAceHighPaiGow: false };
+			mockWebSocketInstance?.simulateMessage({ type: 'dealerHandUpdate', payload: { ...dealerData, nextState: 'PlayerTurn' } });
+			expect(get(dealerHandStore)).toEqual(dealerData);
+			expect(get(gameStateStore)).toBe('PlayerTurn');
+		});
+
+		it('should update stores on "roundResult" message', () => {
+			dannyBucksStore.set(1000);
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			const resultData = { outcome: 'Loss', amount: -50 };
+			mockWebSocketInstance?.simulateMessage({ type: 'roundResult', payload: { ...resultData, dannyBucks: 950, nextState: 'Betting' } });
+			expect(get(lastResultStore)).toEqual(resultData);
+			expect(get(dannyBucksStore)).toBe(950);
+			expect(get(gameStateStore)).toBe('Betting');
+		});
+
+		it('should handle invalid JSON messages gracefully and set Error state', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(get(connectionStatus)).toBe('open');
+			// Simulate invalid message
+			mockWebSocketInstance?.onmessage?.({ data: 'this is not json' });
+			expect(get(connectionStatus)).toBe('error'); // Status changes via handler
+			expect(get(connectionError)).toBe('Failed to parse incoming message.');
+			expect(get(gameStateStore)).toBe('Error'); // Game state changes via subscription
+		});
+
+		it('should warn if connection already exists and is open', () => {
+			const consoleWarnSpy = vi.spyOn(console, 'warn');
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(get(connectionStatus)).toBe('open');
+
+			connectWebSocket(testUrl); // Attempt second connection
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				expect.stringContaining('WebSocket connection attempt ignored.'), // Check new warning message
+			);
+			expect(MockWebSocket.instances.length).toBe(1); // Still only one instance
+		});
 	});
 
-	it('should handle multiple listeners for the same type and unsubscribe correctly', async () => {
-		const connectPromise = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers();
-		await connectPromise;
+	describe('sendWebSocketMessage', () => {
+		it('should send message if connection is open', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			const message: WebSocketMessage = { type: 'action', payload: 'do something' };
+			sendWebSocketMessage(message);
+			expect(mockWebSocketInstance?.sentMessages.length).toBe(1); // Sent
+			expect(mockWebSocketInstance?.sentMessages[0]).toBe(JSON.stringify(message));
+		});
 
-		const listener1 = vi.fn();
-		const listener2 = vi.fn();
-		const unsubscribe1 = addMessageListener('multiTest', listener1);
-		const unsubscribe2 = addMessageListener('multiTest', listener2);
+		it('should queue message if connection is connecting, then send on open', () => {
+			connectWebSocket(testUrl);
+			expect(get(connectionStatus)).toBe('connecting');
+			const message: WebSocketMessage = { type: 'action', payload: 'connecting msg' };
+			sendWebSocketMessage(message); // Should queue
+			expect(mockWebSocketInstance?.sentMessages.length).toBe(0);
 
-		const payload = { id: 1 };
-		mockWebSocketInstance?._simulateMessage({ type: 'multiTest', payload });
-		vi.runAllTimers();
+			mockWebSocketInstance?.simulateOpen(); // Open -> sends queue via sendWebSocketMessage
+			expect(mockWebSocketInstance?.sentMessages.length).toBe(1); // Should be sent now
+			expect(mockWebSocketInstance?.sentMessages[0]).toBe(JSON.stringify(message));
+		});
 
-		expect(listener1).toHaveBeenCalledTimes(1);
-		expect(listener1).toHaveBeenCalledWith(payload);
-		expect(listener2).toHaveBeenCalledTimes(1);
-		expect(listener2).toHaveBeenCalledWith(payload);
+		it('should queue message if called before connectWebSocket, then send on open', () => {
+			const message: WebSocketMessage = { type: 'action', payload: 'early msg' };
+			sendWebSocketMessage(message); // Queue before connect
 
-		// Unsubscribe one, the other should still work
-		unsubscribe1();
-		const payload2 = { id: 2 };
-		mockWebSocketInstance?._simulateMessage({ type: 'multiTest', payload: payload2 });
-		vi.runAllTimers();
+			connectWebSocket(testUrl);
+			expect(mockWebSocketInstance?.sentMessages.length).toBe(0);
 
-		expect(listener1).toHaveBeenCalledTimes(1); // Not called again
-		expect(listener2).toHaveBeenCalledTimes(2);
-		expect(listener2).toHaveBeenCalledWith(payload2);
+			mockWebSocketInstance?.simulateOpen(); // Open -> sends queue via sendWebSocketMessage
+			expect(mockWebSocketInstance?.sentMessages.length).toBe(1); // Should be sent now
+			expect(mockWebSocketInstance?.sentMessages[0]).toBe(JSON.stringify(message));
+		});
 
-		unsubscribe2();
-		// Send again, neither should be called
-		mockWebSocketInstance?._simulateMessage({ type: 'multiTest', payload: { id: 3 } });
-		vi.runAllTimers();
-		expect(listener1).toHaveBeenCalledTimes(1);
-		expect(listener2).toHaveBeenCalledTimes(2);
+		it('should queue message if connection is closed, then send on next open', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			mockWebSocketInstance?.simulateServerClose(); // Close it
+			expect(get(connectionStatus)).toBe('closed');
+
+			const message: WebSocketMessage = { type: 'action', payload: 'late msg' };
+			sendWebSocketMessage(message); // Should queue
+
+			connectWebSocket(testUrl); // Reconnect
+			expect(get(connectionStatus)).toBe('connecting');
+			const newMockInstance = mockWebSocketInstance;
+			expect(newMockInstance).not.toBeNull();
+			expect(newMockInstance?.sentMessages.length).toBe(0);
+
+			newMockInstance?.simulateOpen(); // Open -> sends queue via sendWebSocketMessage
+			expect(newMockInstance?.sentMessages.length).toBe(1);
+			expect(newMockInstance?.sentMessages[0]).toBe(JSON.stringify(message));
+		});
+
+		it('should report error if trying to send while in error state', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateError(); // Put in error state
+			expect(get(connectionStatus)).toBe('error');
+
+			const message: WebSocketMessage = { type: 'action', payload: 'error msg' };
+			sendWebSocketMessage(message);
+
+			expect(get(connectionError)).toBe('Cannot send message while status is error.');
+			expect(mockWebSocketInstance).toBeNull(); // Instance should be cleared by error simulation
+		});
+
+		it('should trigger error state if send fails when open', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(get(connectionStatus)).toBe('open');
+			// Mock the send method to throw an error
+			const sendSpy = vi.spyOn(mockWebSocketInstance!, 'send').mockImplementation(() => {
+				throw new Error("Send failed");
+			});
+
+			const message: WebSocketMessage = { type: 'action', payload: 'fail send' };
+			sendWebSocketMessage(message);
+
+			expect(sendSpy).toHaveBeenCalled();
+			expect(get(connectionStatus)).toBe('error'); // Should transition to error
+			expect(get(connectionError)).toBe('Failed to send message.');
+		});
 	});
 
-	it('should handle malformed JSON messages gracefully', async () => {
-		const connectPromise = connectWebSocket();
-		mockWebSocketInstance?._triggerOpen(); // Manually trigger open
-		vi.runAllTimers();
-		await connectPromise;
+	describe('closeWebSocket', () => {
+		it('should call close on the WebSocket instance if open and set status to closed', () => {
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(get(connectionStatus)).toBe('open');
+			const currentMock = mockWebSocketInstance;
+			expect(currentMock).not.toBeNull();
+			const closeSpy = vi.spyOn(currentMock!, 'close');
 
-		const listener = vi.fn();
-		addMessageListener('goodType', listener);
+			closeWebSocket(); // Calls mock close synchronously now
 
-		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {}); // Suppress console error output
+			expect(closeSpy).toHaveBeenCalledWith(1000, 'Client initiated disconnect');
+			// Mock close triggers service onclose, which sets status
+			expect(get(connectionStatus)).toBe('closed');
+			expect(get(gameStateStore)).toBe('Disconnected');
+			expect(mockWebSocketInstance).toBeNull(); // Mock instance cleared by mock close
+		});
 
-		// Simulate malformed message
-		mockWebSocketInstance?.onmessage?.({ data: "{ type: 'badJson', payload: " });
-		vi.runAllTimers(); // Allow handler to run
+		it('should set status to closed immediately if socket not open but connecting', () => {
+			connectWebSocket(testUrl);
+			expect(get(connectionStatus)).toBe('connecting');
+			const currentMock = mockWebSocketInstance; // Capture instance
 
-		expect(listener).not.toHaveBeenCalled(); // Good listener shouldn't fire
-		expect(consoleErrorSpy).toHaveBeenCalledWith(
-			'Failed to parse WebSocket message or error in handler:',
-			expect.any(SyntaxError) // Check for specific error type
-		);
-		expect(consoleErrorSpy).toHaveBeenCalledWith(
-			'Received data:',
-			"{ type: 'badJson', payload: "
-		);
+			closeWebSocket(); // Call close while connecting
 
-		// Ensure good messages still work after a bad one
-		const goodPayload = { works: true };
-		mockWebSocketInstance?._simulateMessage({ type: 'goodType', payload: goodPayload });
-		vi.runAllTimers();
-		expect(listener).toHaveBeenCalledTimes(1);
-		expect(listener).toHaveBeenCalledWith(goodPayload);
+			expect(get(connectionStatus)).toBe('closed'); // Should be forced closed by closeWebSocket
+			expect(get(gameStateStore)).toBe('Disconnected'); // Updated by subscription
+			expect(currentMock?.readyState).toBe(WebSocket.CONNECTING); // Mock socket wasn't told to close
 
-		consoleErrorSpy.mockRestore(); // Restore console.error
+			// Verify service's internal socket is null by attempting another connection
+			MockWebSocket.mockClear(); // Clear previous instance tracking
+			connectWebSocket(testUrl); // Should succeed
+			expect(get(connectionStatus)).toBe('connecting');
+			expect(MockWebSocket.instances.length).toBe(1); // New instance created
+		});
+
+		it('should set status to closed immediately if socket is null', () => {
+			connectionStatus.set('open'); // Set dummy state
+			gameStateStore.set('PlayerTurn');
+			connectionError.set('some error');
+
+			closeWebSocket(); // Call close when socket is null
+
+			expect(get(connectionStatus)).toBe('closed');
+			expect(get(gameStateStore)).toBe('Disconnected');
+			expect(get(connectionError)).toBeNull(); // Error should be cleared
+		});
+
+		it('should clear message queue when closing', () => {
+			sendWebSocketMessage({ type: 'queued', payload: 1 }); // Queue before connect
+			connectWebSocket(testUrl); // Connects, queue remains
+			expect(get(connectionStatus)).toBe('connecting');
+			// Manually check internal queue state before close (if possible/needed)
+			// For this test, we assume sendWebSocketMessage queued correctly
+
+			closeWebSocket(); // Close while connecting
+
+			expect(get(connectionStatus)).toBe('closed');
+			// Verify queue is empty by connecting again and checking sent messages
+			MockWebSocket.mockClear();
+			connectWebSocket(testUrl);
+			mockWebSocketInstance?.simulateOpen();
+			expect(mockWebSocketInstance?.sentMessages.length).toBe(0); // No messages sent on open
+		});
 	});
 });

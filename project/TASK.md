@@ -105,7 +105,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Set up basic file structure (routes, components, stores, services).
     * **[x] Verify:** Project initializes, dev server runs (`pnpm run dev`), basic page loads in browser. Tailwind directives work. Biome formats/lints correctly on save or via command line.
 
-11. **[ ] Frontend: Create WebSocket Client Service**
+11. **[x] Frontend: Create WebSocket Client Service**
     * Create a JavaScript/TypeScript module (e.g., `src/lib/services/websocket.js`).
     * Implement function to establish WebSocket connection to the backend server URL.
     * Implement handlers for `onopen`, `onmessage`, `onerror`, `onclose`.
@@ -113,7 +113,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * The `onmessage` handler should parse incoming JSON messages.
     * **[ ] Verify:** Service connects to the running backend (check browser console/network tab). Can manually trigger sending a message (e.g., a test ping) via console. Incoming messages from backend are logged correctly. Connection errors/closures are handled gracefully.
 
-12. **[ ] Frontend: Set Up Svelte Stores for Game State**
+12. **[x] Frontend: Set Up Svelte Stores for Game State**
     * Create Svelte stores (e.g., in `src/lib/stores/`) to hold reactive game state:
         * `usernameStore` (string | null)
         * `playersStore` (array of player objects/usernames)
