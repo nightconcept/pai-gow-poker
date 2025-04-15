@@ -155,4 +155,3 @@ Once Devenv finishes setting up (your command prompt should return), verify that
     ```
 
 These commands should output the specific versions of Node.js and pnpm defined in the project's `devenv.nix` or `flake.nix` file, not any globally installed versions.
-```
