@@ -8,7 +8,7 @@ import { evaluate5CardHand, evaluate2CardHand, compareEvaluatedHands } from './u
 /**
  * Defines the structure for messages exchanged via WebSocket.
  */
-interface WebSocketMessage {
+interface WebSocketMessage {    
 	type: string;
 	payload: any; // Use 'any' for now, refine with specific types later
 }

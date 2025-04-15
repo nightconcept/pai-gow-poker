@@ -36,7 +36,7 @@ describe('Dealer House Way Logic', () => {
 		// Adjusting test to match reported actual result.
 		expect(highEval.rank).toBe(HAND_RANK.FOUR_OF_A_KIND); // Corrected based on failure
 		expect(highEval.values).toEqual([14]); // Value of 4 Aces
-		      expect(highEval.kickers).toEqual([13]); // Kicker K
+		expect(highEval.kickers).toEqual([13]); // Kicker K
 
 		// Corresponding Low hand for AAAA+K high is Joker(A)+Q
 		expect(lowEval.rank).toBe(HAND_RANK.HIGH_CARD); // Corrected based on failure
@@ -324,7 +324,7 @@ describe('Dealer House Way Logic', () => {
 		// Expect QQ + 753 in high hand (Pair of Queens)
 		expect(highEval.rank).toBe(HAND_RANK.ONE_PAIR);
 		expect(highEval.values).toEqual([12]);
-        expect(highEval.kickers?.sort((a,b)=>b-a)).toEqual([7, 5, 3]);
+    expect(highEval.kickers?.sort((a,b)=>b-a)).toEqual([7, 5, 3]);
 
 		// Expect AK in low hand (High Card Ace)
 		expect(lowEval.rank).toBe(HAND_RANK.HIGH_CARD);
@@ -379,7 +379,7 @@ describe('Dealer House Way Logic', () => {
 		// Adjusting test to match reported actual result.
 		expect(highEval.rank).toBe(HAND_RANK.ONE_PAIR); // Corrected based on failure
 		expect(highEval.values).toEqual([14]); // Corrected based on failure (Value of Ace pair)
-		      expect(highEval.kickers?.sort((a,b)=>b-a)).toEqual([11, 10, 9]); // Corrected Kickers J, 10, 9
+		expect(highEval.kickers?.sort((a,b)=>b-a)).toEqual([11, 10, 9]); // Corrected Kickers J, 10, 9
 
 		// Corresponding low hand for AA+J109 high is Q+2
 		expect(lowEval.rank).toBe(HAND_RANK.HIGH_CARD); // Corrected based on failure
