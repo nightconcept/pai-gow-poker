@@ -1,0 +1,4 @@
+packages:
+  - 'apps/*'
+  # Add 'packages/*' if you plan to have shared libraries
+  # - 'packages/*'

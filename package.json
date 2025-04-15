@@ -1,0 +1,30 @@
+{
+  "name": "pai-gow-poker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter pai-gow-poker-backend dev",
+    "dev": "pnpm run \"/^dev:.*/\"",
+
+    "build:frontend": "pnpm --filter frontend build",
+    "build:backend": "pnpm --filter pai-gow-poker-backend build",
+    "build": "pnpm run build:frontend && pnpm run build:backend",
+
+    "lint": "pnpm -r --parallel lint",
+    "format": "pnpm -r --parallel format"
+
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4"
+  }
+}
