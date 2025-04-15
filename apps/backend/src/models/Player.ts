@@ -9,7 +9,10 @@ export class Player {
 	username: string | null; // Player's chosen name, null until set
 	dannyBucks: number; // Current chip balance
 	currentHand: Card[] | null; // Player's 7 dealt cards
+	setHighHand: Card[] | null; // Player's chosen 5-card hand
+	setLowHand: Card[] | null; // Player's chosen 2-card hand
 	currentBet: number | null; // Amount bet for the current round
+	hasSetHand: boolean; // Flag if player has set their hand this round
 	isHost: boolean; // Is this player the host? (Simplified for MVP)
 	ws: WebSocket; // Reference to the player's WebSocket connection
 
@@ -24,7 +27,10 @@ export class Player {
 		this.username = null; // Username is set later via message
 		this.dannyBucks = 0; // Initial balance set later (e.g., in GameTable or on username set)
 		this.currentHand = null;
+		this.setHighHand = null;
+		this.setLowHand = null;
 		this.currentBet = null;
+		this.hasSetHand = false;
 		this.isHost = false; // Host status determined later
 	}
 }

@@ -19,7 +19,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Verify `package.json` exists in the backend folder.
     * Install core dependencies (`ws`).
     * Set up basic project scripts (e.g., `start`, `dev`).
-    * **[ ] Verify:** Project structure exists, dependencies install (`pnpm install` or `yarn`), basic server file runs without errors using `node server.js` (or similar).
+    * **[x] Verify:** Project structure exists, dependencies install (`pnpm install` or `yarn`), basic server file runs without errors using `node server.js` (or similar).
 
 2.  **[x] Backend: Implement Basic WebSocket Server**
     * Use the `ws` library to create a WebSocket server.
@@ -28,13 +28,13 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Handle basic client disconnection (`close`) events.
     * Define and implement a basic JSON message structure (e.g., `{ type: '...', payload: {...} }`).
     * Implement basic message receiving (`message`) handler.
-    * **[ ] Verify:** Server starts, accepts WebSocket connection from a test client (e.g., browser console, Postman). Server logs connect/disconnect events. Basic predefined messages can be sent from client to server and server can broadcast a simple message back to the client(s).
+    * **[x] Verify:** Server starts, accepts WebSocket connection from a test client (e.g., browser console, Postman). Server logs connect/disconnect events. Basic predefined messages can be sent from client to server and server can broadcast a simple message back to the client(s).
 
 3.  **[x] Backend: Define In-Memory State (Player, GameTable)**
     * Define JavaScript classes or object structures for `Player` (id, username, dannyBucks, currentHand, etc.) and `GameTable` (id, hostId, players array, gameState, deck, dealerHand, etc.) for a single table scenario.
     * Implement logic to add a new `Player` object to the `GameTable.players` array when a WebSocket connection is established (initially without username).
     * Implement logic to remove the `Player` object from the `GameTable.players` array on WebSocket disconnection.
-    * **[ ] Verify:** Inspect server logs or use debugger to confirm `Player` objects are added/removed from the in-memory `GameTable` state correctly upon client connect/disconnect. Data structures match the PRD definitions.
+    * **[x] Verify:** Inspect server logs or use debugger to confirm `Player` objects are added/removed from the in-memory `GameTable` state correctly upon client connect/disconnect. Data structures match the PRD definitions.
 
 4.  **[x] Backend: Implement Username Handling & Uniqueness Check**
     * Implement message handling for `type: 'setUsername'`.
@@ -73,19 +73,19 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Prevent dealing until bets are placed (or timeout/host action in later phases).
     * (Outcome handling is in Task 9).
     * **[ ] Verify:** Players start with correct DB. Send `placeBet` message; verify DB balance decreases by fixed amount and bet is recorded. Inspect server state. Test placing bet before dealing trigger.
-
-8.  **[ ] Backend: Implement Player Hand Input Handling & Validation**
+   
+   8.  **[x] Backend: Implement Player Hand Input Handling & Validation**
     * Implement message handling for `type: 'setPlayerHand'`. Payload should contain the player's chosen 2-card and 5-card hands.
     * Validate the received hands: exactly 2 cards in low, 5 cards in high; cards must be from the player's originally dealt 7 cards; the 5-card hand must rank strictly higher than the 2-card hand (using implemented ranking logic). Include Joker rules in validation.
     * If valid, store the set hands in the `Player` object state. Send confirmation to player.
     * If invalid, send an error message back to the player.
     * Only accept `setPlayerHand` messages during the correct game state (e.g., `'playerTurn'`) and *only* if it wasn't an Ace-High Push round.
     * **[ ] Verify:** Send valid hand splits; verify server accepts and stores them. Send invalid splits (wrong card count, invalid cards, low hand > high hand); verify server rejects with error message. Try sending during wrong game state; verify rejection. Test with hands involving Jokers.
-
-9.  **[ ] Backend: Implement Hand Comparison, Outcome Logic & DB Updates**
+   
+   9.  **[x] Backend: Implement Hand Comparison, Outcome Logic & DB Updates**
     * Implement 5-card and 2-card hand comparison logic respecting poker ranks and the "Copy" rule (dealer wins ties).
     * Once all players have submitted valid hands (or if Ace-High Push occurred):
-        * If Ace-High Push: Mark all player outcomes as Push.
+    * If Ace-High Push: Mark all player outcomes as Push.
         * If not Ace-High Push: Compare each player's high/low hands against the dealer's high/low hands.
         * Determine Win/Loss/Push outcome for each player based on the comparison rules (Win both, Lose both, Split -> Push).
     * Update player `dannyBucks` balances based on the outcome and their `currentBet` (Win: +bet, Loss: -bet, Push: no change. MVP is commission-free).
