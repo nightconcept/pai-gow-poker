@@ -42,7 +42,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * If unique, assign the username to the corresponding `Player` object and send a success response message (e.g., `{ type: 'usernameSuccess', payload: { username: '...' } }`) back to that client.
     * If not unique, send a failure response message (e.g., `{ type: 'usernameFailure', payload: { message: 'Username taken' } }`) back to that client.
     * Broadcast a message to all other clients when a new user successfully sets a username (e.g., `{ type: 'playerJoined', payload: { username: '...' } }`).
-    * **[ ] Verify:** Connect multiple clients. Attempt to set the same username from two clients; verify the second one fails. Set unique usernames; verify success messages are received and other clients get `playerJoined` updates. Inspect server state to confirm usernames are assigned correctly.
+    * **[x] Verify:** Connect multiple clients. Attempt to set the same username from two clients; verify the second one fails. Set unique usernames; verify success messages are received and other clients get `playerJoined` updates. Inspect server state to confirm usernames are assigned correctly.
 
 ### MVP Sub-Phase 2: Core Game Mechanics (Backend - Face-Up Variant)
 
@@ -55,7 +55,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Implement dealing logic: Deal 7 cards to each connected `Player` who has set a username, and 7 cards to the AI Dealer.
     * Store the dealt hands associated with the `Player` objects and the dealer state within the `GameTable`.
     * Broadcast the player's hand to the respective client and potentially a generic "dealing complete" message.
-    * **[ ] Verify:** Trigger dealing logic. Inspect server state/logs to confirm deck has 53 unique cards, shuffling appears random, each player and dealer receives exactly 7 cards, and hands are stored correctly.
+    * **[x] Verify:** Trigger dealing logic. Inspect server state/logs to confirm deck has 53 unique cards, shuffling appears random, each player and dealer receives exactly 7 cards, and hands are stored correctly.
 
 6.  **[x] Backend: Implement Dealer "House Way" & Ace-High Push Logic**
     * Implement the "House Way" logic (as defined in Appendix/PRD) for the AI dealer to partition its 7 cards into a 5-card high hand and 2-card low hand. Pay attention to Joker rules and special cases (Pairs, Aces, etc.).
@@ -72,7 +72,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Before dealing, allow players to place their bet. Deduct the fixed bet amount from the player's `dannyBucks` balance. Store the `currentBet`.
     * Prevent dealing until bets are placed (or timeout/host action in later phases).
     * (Outcome handling is in Task 9).
-    * **[ ] Verify:** Players start with correct DB. Send `placeBet` message; verify DB balance decreases by fixed amount and bet is recorded. Inspect server state. Test placing bet before dealing trigger.
+    * **[x] Verify:** Players start with correct DB. Send `placeBet` message; verify DB balance decreases by fixed amount and bet is recorded. Inspect server state. Test placing bet before dealing trigger.
    
    8.  **[x] Backend: Implement Player Hand Input Handling & Validation**
     * Implement message handling for `type: 'setPlayerHand'`. Payload should contain the player's chosen 2-card and 5-card hands.
@@ -80,7 +80,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * If valid, store the set hands in the `Player` object state. Send confirmation to player.
     * If invalid, send an error message back to the player.
     * Only accept `setPlayerHand` messages during the correct game state (e.g., `'playerTurn'`) and *only* if it wasn't an Ace-High Push round.
-    * **[ ] Verify:** Send valid hand splits; verify server accepts and stores them. Send invalid splits (wrong card count, invalid cards, low hand > high hand); verify server rejects with error message. Try sending during wrong game state; verify rejection. Test with hands involving Jokers.
+    * **[x] Verify:** Send valid hand splits; verify server accepts and stores them. Send invalid splits (wrong card count, invalid cards, low hand > high hand); verify server rejects with error message. Try sending during wrong game state; verify rejection. Test with hands involving Jokers.
    
    9.  **[x] Backend: Implement Hand Comparison, Outcome Logic & DB Updates**
     * Implement 5-card and 2-card hand comparison logic respecting poker ranks and the "Copy" rule (dealer wins ties).
@@ -103,7 +103,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Add and configure TailwindCSS v4 (JIT).
     * Add and configure Biome for linting/formatting.
     * Set up basic file structure (routes, components, stores, services).
-    * **[ ] Verify:** Project initializes, dev server runs (`pnpm run dev`), basic page loads in browser. Tailwind directives work. Biome formats/lints correctly on save or via command line.
+    * **[x] Verify:** Project initializes, dev server runs (`pnpm run dev`), basic page loads in browser. Tailwind directives work. Biome formats/lints correctly on save or via command line.
 
 11. **[ ] Frontend: Create WebSocket Client Service**
     * Create a JavaScript/TypeScript module (e.g., `src/lib/services/websocket.js`).
