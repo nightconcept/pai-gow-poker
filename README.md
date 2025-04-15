@@ -63,12 +63,12 @@ These instructions are for setting up a local development environment.
 **Prerequisites:**
 
 * Git
-* Node.js (Check `.nvmrc` or `package.json` engines field for version, e.g., v18+)
-* npm or yarn
+* Node.js (tested on v22+)
+* pnpm
 * Docker (for running backend in a container)
 
 **1. Clone the Repository:**
 
 ```bash
-git clone <repository-url>
-cd <repository-directory>
+git https://github.com/nightconcept/pai-gow-poker.git
+cd pai-gow-poker
