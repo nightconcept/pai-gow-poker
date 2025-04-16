@@ -28,6 +28,8 @@
 	// --- Local State ---
 	let enteredUsername = '';
 	let localError: string | null = null; // For form validation errors
+	let selectedLowHandIndices = new Set<number>(); // Indices (0-6) of cards selected for low hand
+	let handSettingError: string | null = null; // For hand setting validation errors
 
 	// --- Reactive Subscriptions ---
 	let currentUsername: string | null = null;
@@ -134,6 +136,63 @@
 		sendWebSocketMessage({ type: 'startGame', payload: {} });
 	}
 
+	function handleCardClick(index: number) {
+		if (!isHandSettingEnabled) return; // Don't allow clicks if not enabled
+
+		handSettingError = null; // Clear previous errors on interaction
+
+		if (selectedLowHandIndices.has(index)) {
+			selectedLowHandIndices.delete(index);
+		} else {
+			if (selectedLowHandIndices.size < 2) {
+				selectedLowHandIndices.add(index);
+			} else {
+				// Already 2 selected, maybe provide feedback? For now, just ignore.
+				console.warn('Already selected 2 cards for the low hand.');
+				handSettingError = 'You can only select 2 cards for the low hand.';
+			}
+		}
+		selectedLowHandIndices = selectedLowHandIndices; // Trigger reactivity
+	}
+
+	function handleConfirmHand() {
+		if (!isHandSettingValid) {
+			handSettingError = 'You must select exactly 2 cards for the low hand.';
+			return;
+		}
+		if (!currentMyHand) {
+			handSettingError = 'Cannot set hand, no cards available.';
+			return;
+		}
+
+		const lowHand: Card[] = [];
+		const highHand: Card[] = [];
+
+		currentMyHand.forEach((card, index) => {
+			if (selectedLowHandIndices.has(index)) {
+				lowHand.push(card);
+			} else {
+				highHand.push(card);
+			}
+		});
+
+		// Basic client-side check (backend *must* validate rigorously)
+		if (lowHand.length !== 2 || highHand.length !== 5) {
+			handSettingError = 'Invalid split: Must have 2 cards in low hand and 5 in high hand.';
+			console.error('Hand split calculation error', lowHand, highHand);
+			return;
+		}
+
+		console.log('Confirming hand:', { lowHand, highHand });
+		sendWebSocketMessage({
+			type: 'setPlayerHand',
+			payload: { lowHand, highHand }
+		});
+
+		// Optionally clear selection after sending, or wait for backend confirmation/state change
+		// selectedLowHandIndices.clear();
+		// selectedLowHandIndices = selectedLowHandIndices;
+	}
 
 	// --- Helper Functions ---
 	/** Renders a card object into a string like "AH" or "TS" */
@@ -156,6 +215,19 @@
 	// --- Reactive Logging ---
 	$: { // Log whenever the store value changes as seen by the component
 		console.log('COMPONENT sees $gameStateStore change:', $gameStateStore);
+	}
+
+	// --- Reactive Computations ---
+	// Use 'PlayerAction' as received from backend logs
+	$: isHandSettingEnabled = $gameStateStore === 'PlayerAction' && !$dealerHandStore?.isAceHighPaiGow;
+	$: isHandSettingValid = selectedLowHandIndices.size === 2;
+
+	// Clear selection if hand setting becomes disabled (e.g., state changes)
+	$: if (!isHandSettingEnabled && selectedLowHandIndices.size > 0) {
+		console.log('Hand setting disabled, clearing selection.');
+		selectedLowHandIndices.clear();
+		selectedLowHandIndices = selectedLowHandIndices; // Trigger reactivity
+		handSettingError = null; // Clear errors too
 	}
 </script>
 
@@ -207,9 +279,28 @@
 					<div class="my-4">
 						<h4 class="font-medium mb-1">Your Hand (7 Cards):</h4>
 						{#if currentMyHand}
-							<p class="font-mono text-lg bg-white px-2 py-1 rounded shadow-sm inline-block">
-								{renderHand(currentMyHand)}
-							</p>
+							<!-- Make cards clickable -->
+							<div class="p-2 border rounded border-gray-300 bg-gray-50">
+								{#each currentMyHand as card, index (index)}
+									<button
+										type="button"
+										class="inline-block font-mono text-lg px-2 py-1 rounded shadow-sm mx-0.5 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-150"
+										class:bg-white={!selectedLowHandIndices.has(index)}
+										class:text-black={!selectedLowHandIndices.has(index)}
+										class:bg-yellow-300={selectedLowHandIndices.has(index)}
+										class:text-yellow-900={selectedLowHandIndices.has(index)}
+										class:border-2={selectedLowHandIndices.has(index)}
+										class:border-yellow-500={selectedLowHandIndices.has(index)}
+										class:hover:bg-gray-100={!selectedLowHandIndices.has(index) && isHandSettingEnabled}
+										class:hover:bg-yellow-400={selectedLowHandIndices.has(index) && isHandSettingEnabled}
+										disabled={!isHandSettingEnabled}
+										on:click={() => handleCardClick(index)}
+										title={isHandSettingEnabled ? `Click to toggle selection for low hand (${selectedLowHandIndices.size}/2 selected)` : 'Hand setting not active'}
+									>
+										{renderCard(card)}
+									</button>
+								{/each}
+							</div>
 						{:else if $gameStateStore === 'Dealing' || $gameStateStore === 'Betting' || $gameStateStore === 'WaitingForPlayers'} <!-- Use $gameStateStore -->
 							<p class="text-sm text-gray-500 italic">Waiting for cards...</p>
 						{:else}
@@ -252,8 +343,28 @@
 					<!-- === END TEMPORARY TEST BUTTONS === -->
 
 
-					<!-- Hand setting UI will go here later -->
-					<p class="text-sm text-gray-600 mt-4">(Hand Setting Placeholder)</p>
+					<!-- === Hand Setting Area === -->
+					<div class="mt-4 pt-4 border-t">
+						{#if isHandSettingEnabled}
+							<h4 class="font-medium mb-2">Set Your Hand ({selectedLowHandIndices.size} / 2 selected for Low Hand)</h4>
+							{#if handSettingError}
+								<p class="text-sm text-red-600 mb-2" role="alert">{handSettingError}</p>
+							{/if}
+							<button
+								class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed"
+								disabled={!isHandSettingValid}
+								on:click={handleConfirmHand}
+							>
+								Confirm Hand Split
+							</button>
+							<p class="text-xs text-gray-500 mt-1">Select exactly 2 cards for your Low Hand by clicking them above.</p>
+						{:else if $gameStateStore === 'WaitingForOthers'}
+							<p class="text-sm text-green-700 italic">Hand submitted. Waiting for other players...</p>
+						{:else if $gameStateStore !== 'WaitingForPlayers' && $gameStateStore !== 'Betting' && $gameStateStore !== 'Dealing'}
+							<p class="text-sm text-gray-500 italic">(Hand setting not active for state: {$gameStateStore})</p>
+						{/if}
+					</div>
+					<!-- === END Hand Setting Area === -->
 				</div>
 
 				<!-- Opponent List (Bottom on small, bottom right on medium+) -->

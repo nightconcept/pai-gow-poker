@@ -33,7 +33,7 @@ export type GameState =
 	| 'Dealing' // Cards are being dealt (brief state)
 	| 'DealerHandVisible' // Dealer's hand is set and visible
 	| 'AceHighPush' // Dealer had Ace-High Pai Gow, round is a push
-	| 'PlayerTurn' // Player needs to set their hand
+	| 'PlayerAction' // Player needs to set their hand (Matches backend log)
 	| 'WaitingForOthers' // Player has set hand, waiting for other players
 	| 'Showdown' // All hands set, results being determined/shown
 	| 'RoundOver' // Round finished, preparing for next betting phase

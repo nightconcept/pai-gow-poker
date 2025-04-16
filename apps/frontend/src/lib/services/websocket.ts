@@ -255,7 +255,7 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 				gameStateStore.set(message.payload.nextState as GameState);
 			} else {
 				// Fallback if nextState isn't provided (should be)
-				gameStateStore.set(message.payload.isAceHighPaiGow ? 'AceHighPush' : 'PlayerTurn');
+				gameStateStore.set(message.payload.isAceHighPaiGow ? 'AceHighPush' : 'PlayerAction'); // Use PlayerAction
 			}
 			break;
 		case 'roundResult':

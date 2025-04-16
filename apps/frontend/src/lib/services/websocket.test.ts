@@ -417,11 +417,11 @@ describe('websocket service', () => {
 			expect(get(connectionStatus)).toBe('connecting');
 			expect(MockWebSocket.instances.length).toBe(1); // New instance created
 		});
+it('should set status to closed immediately if socket is null', () => {
+	connectionStatus.set('open'); // Set dummy state
+	gameStateStore.set('PlayerAction'); // Use PlayerAction
+	connectionError.set('some error');
 
-		it('should set status to closed immediately if socket is null', () => {
-			connectionStatus.set('open'); // Set dummy state
-			gameStateStore.set('PlayerTurn');
-			connectionError.set('some error');
 
 			closeWebSocket(); // Call close when socket is null
 

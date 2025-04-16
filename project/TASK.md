@@ -167,7 +167,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Disable the button after clicking or when the state changes.
     * **[x] Verify:** Button appears only during betting phase. Clicking sends `placeBet` message. Button disables appropriately.
 
-19. **[ ] Frontend: Implement Player Hand Setting UI Interaction**
+19. **[x] Frontend: Implement Player Hand Setting UI Interaction**
     * Make the player's displayed 7 cards interactive (e.g., clickable) *only* when the game state is `playerTurn` (and not Ace-High Push).
     * Implement logic to allow the player to select 2 cards for the low hand (the rest go to high hand), or select 5 for the high hand.
     * Provide clear visual feedback for selected cards/assigned hands.
@@ -175,7 +175,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Add a "Confirm Hand" button, enabled only when a valid 2/5 split is selected.
     * On confirm, send the `setPlayerHand` message with the selected hands via the WebSocket service.
     * Disable interaction after confirming or when state changes.
-    * **[ ] Verify:** Card interaction is enabled only during player turn (and not Ace-High Push). Can select 2 cards; visual feedback works. Can select 5 cards; visual feedback works. Submit button enables only with valid 2/5 split. Client validation provides warnings. Confirm button sends correct `setPlayerHand` message. Interaction disables appropriately.
+    * **[x] Verify:** Card interaction is enabled only during player turn (and not Ace-High Push). Can select 2 cards; visual feedback works. Can select 5 cards; visual feedback works. Submit button enables only with valid 2/5 split. Client validation provides warnings. Confirm button sends correct `setPlayerHand` message. Interaction disables appropriately. (Done: 2025-04-15)
 
 20. **[ ] Frontend: Display Round Results (Win/Loss/Push, Balance)**
     * Subscribe to `lastResultStore` and `dannyBucksStore`.
