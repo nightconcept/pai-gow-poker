@@ -64,7 +64,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Determine if the dealer's 5-card hand is Ace-High Pai Gow.
     * Store the dealer's set hands and the Ace-High status in the `GameTable` state.
     * Broadcast the dealer's *revealed* 7 cards, the dealer's *set* high/low hands, and the game state (e.g., `'dealerSet'`, `'aceHighPush'`, or `'playerTurn'`) to all clients.
-    * **[ ] Verify:** Test with various known 7-card hands (including Jokers, pairs, straights, flushes) and verify the dealer sets its hand according to the defined House Way rules. Verify Ace-High Pai Gow hands are correctly identified. Verify the correct game state and dealer hand information is broadcast.
+    * **[x] Verify:** Test with various known 7-card hands (including Jokers, pairs, straights, flushes) and verify the dealer sets its hand according to the defined House Way rules. Verify Ace-High Pai Gow hands are correctly identified. Verify the correct game state and dealer hand information is broadcast.
 
 7.  **[x] Backend: Implement Basic Betting & DB Balance Logic**
     * Initialize each `Player` object with a starting `dannyBucks` balance upon joining (after setting username).
@@ -92,7 +92,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Handle players running out of DB (set status, prevent future bets).
     * Broadcast round results to all clients (e.g., individual player outcomes, dealer hands, player hands, updated balances).
     * Transition game state back to betting (or waiting).
-    * **[ ] Verify:** Test various player vs dealer hand scenarios (Win, Loss, Push, Copies, Ace-High Push). Verify outcomes are determined correctly per rules. Verify DB balances are updated correctly (no commission for MVP). Verify results are broadcast accurately to all clients. Check handling of zero DB players.
+    * **[x] Verify:** Test various player vs dealer hand scenarios (Win, Loss, Push, Copies, Ace-High Push). Verify outcomes are determined correctly per rules. Verify DB balances are updated correctly (no commission for MVP). Verify results are broadcast accurately to all clients. Check handling of zero DB players.
 
 ### MVP Sub-Phase 3: Frontend Foundation & Connection
 
@@ -111,7 +111,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Implement handlers for `onopen`, `onmessage`, `onerror`, `onclose`.
     * Implement a function to send formatted JSON messages (`{ type: '...', payload: {...} }`) to the backend.
     * The `onmessage` handler should parse incoming JSON messages.
-    * **[ ] Verify:** Service connects to the running backend (check browser console/network tab). Can manually trigger sending a message (e.g., a test ping) via console. Incoming messages from backend are logged correctly. Connection errors/closures are handled gracefully.
+    * **[x] Verify:** Service connects to the running backend (check browser console/network tab). Can manually trigger sending a message (e.g., a test ping) via console. Incoming messages from backend are logged correctly. Connection errors/closures are handled gracefully.
 
 12. **[x] Frontend: Set Up Svelte Stores for Game State**
     * Create Svelte stores (e.g., in `src/lib/stores/`) to hold reactive game state:
@@ -123,15 +123,15 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
         * `gameStateStore` (string, e.g., 'Connecting', 'NeedsUsername', 'Betting', 'PlayerTurn', 'Showdown', 'AceHighPush')
         * `lastResultStore` (object with win/loss/push info | null)
     * Connect the WebSocket service's `onmessage` handler to update these stores based on incoming message types (`usernameSuccess`, `playerJoined`, `gameStateUpdate`, `dealHand`, `roundResult`, etc.).
-    * **[ ] Verify:** Use Svelte dev tools or log store values in components. Send mock messages from backend (or trigger real backend actions); verify stores update reactively and correctly based on message payloads.
+    * **[x] Verify:** Use Svelte dev tools or log store values in components. Send mock messages from backend (or trigger real backend actions); verify stores update reactively and correctly based on message payloads.
 
-13. **[ ] Frontend: Implement Username Input UI & Connection Trigger**
+13. **[x] Frontend: Implement Username Input UI & Connection Trigger**
     * Create a Svelte component/route (e.g., `/`) displayed when `usernameStore` is null.
     * Include an input field for the username and a submit button.
     * On submit, call the WebSocket service to send the `setUsername` message.
     * Display feedback based on success/failure messages received from the backend (updating a local component state or checking the `usernameStore`).
     * Once successful (e.g., `usernameStore` is set), navigate or conditionally render the main game view.
-    * **[ ] Verify:** UI shows initially. Enter username; verify `setUsername` message is sent. Receive success response; verify UI navigates/changes to game view and `usernameStore` is updated. Receive failure response (username taken); verify error message is shown and user stays on username screen.
+    * **[x] Verify:** UI shows initially. Enter username; verify `setUsername` message is sent. Receive success response; verify UI navigates/changes to game view and `usernameStore` is updated. Receive failure response (username taken); verify error message is shown and user stays on username screen.
 
 ### MVP Sub-Phase 4: Frontend Gameplay UI & Interaction
 

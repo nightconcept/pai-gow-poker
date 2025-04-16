@@ -31,6 +31,7 @@ export const connectionError = writable<string | null>(null);
 
 let socket: WebSocket | null = null;
 let messageQueue: WebSocketMessage[] = [];
+let lastUsedUrl: string | null = null; // Store the last successfully used URL
 
 // --- State Synchronization ---
 connectionStatus.subscribe((status) => {
@@ -67,10 +68,23 @@ connectionStatus.subscribe((status) => {
 
 
 /**
- * Establishes a WebSocket connection.
+ * Establishes a WebSocket connection. If url is omitted, attempts to use the last known URL.
  */
-export function connectWebSocket(url: string): void {
-	console.log(`connectWebSocket called. Current socket state: ${socket?.readyState}, Status store: ${get(connectionStatus)}`); // Added logging
+export function connectWebSocket(url?: string): void {
+	const targetUrl = url ?? lastUsedUrl; // Use provided URL or fallback to last used
+
+	if (!targetUrl) {
+		console.error('connectWebSocket: Cannot connect without a URL.');
+		connectionError.set('WebSocket URL not provided.');
+		// Optionally set status to error, though it might already be closed/error
+		if (get(connectionStatus) !== 'error') {
+			connectionStatus.set('error');
+		}
+		return;
+	}
+
+	console.log(`connectWebSocket called for ${targetUrl}. Current socket state: ${socket?.readyState}, Status store: ${get(connectionStatus)}`); // Added logging
+
 	// Prevent multiple connections more robustly
 	if (socket && socket.readyState !== WebSocket.CLOSED && socket.readyState !== WebSocket.CLOSING) {
 		console.warn(`WebSocket connection attempt ignored. State: ${socket.readyState}, Status: ${get(connectionStatus)}`);
@@ -80,15 +94,16 @@ export function connectWebSocket(url: string): void {
 	// If socket is closing, wait for it to close fully before reconnecting?
 	// For now, we allow attempting connection even if closing.
 
-	console.log(`Attempting to connect WebSocket to ${url}...`);
+	console.log(`Attempting to connect WebSocket to ${targetUrl}...`);
 	connectionStatus.set('connecting');
 	connectionError.set(null);
 	messageQueue = []; // Clear queue for new attempt
 
 	try {
-		const newSocket = new WebSocket(url);
+		const newSocket = new WebSocket(targetUrl);
 		// Assign immediately for potential early closeWebSocket calls
 		socket = newSocket;
+		lastUsedUrl = targetUrl; // Store the URL on successful creation attempt
 
 		newSocket.onopen = () => {
 			console.log('WebSocket onopen triggered.');
@@ -170,6 +185,8 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			usernameStore.set(message.payload.username);
 			dannyBucksStore.set(message.payload.dannyBucks ?? 0); // Expect balance with success
 			// Backend should follow up with current player list and game state
+			// Setting gameState here might be redundant if backend sends gameStateUpdate
+			// gameStateStore.set('WaitingForPlayers'); // Or whatever the next state is
 			break;
 		case 'usernameFailure':
 			// UI should handle showing this error based on the store value
