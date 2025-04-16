@@ -117,16 +117,20 @@ wss.on('connection', (ws: PlayerWebSocket) => {
 				case 'setPlayerHand': // Add handler for setting player hand
 					handleSetPlayerHand(currentPlayerId, parsedMessage, ws);
 					break;
+				case 'requestPlayerList': // Handle request for player list
+					handleRequestPlayerList(currentPlayerId, ws);
+					break;
 				// Add other message handlers here
 				default:
-					console.log(`Unknown message type received: ${parsedMessage.type}`);
-					// Send an error or ignore
-					ws.send(
-						JSON.stringify({
-							type: 'error',
-							payload: { message: `Unknown message type: ${parsedMessage.type}` },
-						}),
-					);
+					console.warn(`Unknown message type received: ${parsedMessage.type}`); // Changed to warn
+					// DO NOT send an error for unknown types, could be future features or client mistakes
+					// ws.send(
+					// 	JSON.stringify({
+					// 		type: 'error',
+					// 		payload: { message: `Unknown message type: ${parsedMessage.type}` },
+					// 	}),
+					// );
+					// No action needed for unknown types for now
 			}
 
 			// Remove basic echo logic now that routing is in place
@@ -264,6 +268,19 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 			},
 			playerId, // Exclude the player who just joined
 		);
+
+		// If this is the first player to set a username, transition state to Betting
+		const playersWithUsernames = Array.from(gameTable.players.values()).filter(p => p.username);
+		if (playersWithUsernames.length === 1 && gameTable.gameState === 'WaitingForPlayers') {
+			gameTable.gameState = 'Betting';
+			const newState = gameTable.gameState; // Capture state for logging
+			console.log(`First player joined, setting game state to: ${newState}. Broadcasting update...`);
+			// Broadcast the new state to everyone (including the new player)
+			broadcast({
+				type: 'gameStateUpdate',
+				payload: { gameState: gameTable.gameState, message: 'Waiting for bets.' }
+			});
+		}
 	} else {
 		// Send failure response
 		ws.send(
@@ -275,8 +292,29 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 	}
 }
 
+
 /**
- * Handles the 'placeBet' message from a client.
+	* Handles a request from a client to get the current player list.
+	* @param {string} playerId - The ID of the player requesting the list.
+	* @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
+	*/
+function handleRequestPlayerList(playerId: string, ws: PlayerWebSocket) {
+	console.log(`Received requestPlayerList from ${playerId}`);
+	const playersWithUsernames = Array.from(gameTable.players.values())
+		.filter((p) => p.id !== playerId && p.username) // Filter out self AND ensure username is set
+		.map((p) => ({ username: p.username, id: p.id })); // Send username and ID
+
+	ws.send(
+		JSON.stringify({
+			type: 'playerListUpdate',
+			payload: { players: playersWithUsernames },
+		}),
+	);
+}
+
+
+/**
+	* Handles the 'placeBet' message from a client.
  * @param {string} playerId - The ID of the player sending the message.
  * @param {WebSocketMessage} message - The parsed message object.
  * @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
@@ -292,9 +330,9 @@ function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerW
 	// For MVP, use the fixed bet amount defined in game settings
 	const betAmount = gameTable.gameSettings.fixedBetAmount;
 
-	// Validate game state (allow betting only in 'WaitingForPlayers' or 'Betting' state)
-	if (gameTable.gameState !== 'WaitingForPlayers' && gameTable.gameState !== 'Betting') {
-		ws.send(JSON.stringify({ type: 'error', payload: { message: `Cannot place bet in current game state: ${gameTable.gameState}` } }));
+	// Validate game state (allow betting only in 'Betting' state now)
+	if (gameTable.gameState !== 'Betting') {
+		ws.send(JSON.stringify({ type: 'error', payload: { message: `Cannot place bet. Game state must be 'Betting', but is currently '${gameTable.gameState}'.` } }));
 		return;
 	}
 
@@ -314,16 +352,7 @@ function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerW
 	player.currentBet = betAmount;
 	player.dannyBucks -= betAmount;
 
-	// Transition state if this is the first bet
-	if (gameTable.gameState === 'WaitingForPlayers') {
-		gameTable.gameState = 'Betting';
-		// Broadcast the state change to all players
-		broadcast({
-			type: 'gameStateUpdate',
-			payload: { gameState: gameTable.gameState, message: 'Betting has started. Place your bets!' }
-		});
-		console.log(`Game state changed to Betting by player ${playerId}`);
-	}
+	// State transition logic removed - state should already be 'Betting'
 
 	console.log(`Player ${playerId} (${player.username}) placed bet of ${betAmount}. Remaining DB: ${player.dannyBucks}`);
 
@@ -389,7 +418,7 @@ function handleStartGame(playerId: string, message: WebSocketMessage, ws: Player
 				payload: {
 					gameState: gameTable.gameState, // Will be 'AceHighPush' or 'PlayerAction'
 					dealerHand: { // Send all dealer info for Face-Up variant
-						dealtCards: gameTable.dealerHand.dealtCards,
+						revealed: gameTable.dealerHand.dealtCards, // <-- Change field name to 'revealed'
 						highHand: gameTable.dealerHand.highHand,
 						lowHand: gameTable.dealerHand.lowHand,
 						isAceHighPaiGow: gameTable.dealerHand.isAceHighPaiGow,

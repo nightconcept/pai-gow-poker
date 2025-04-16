@@ -184,9 +184,12 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 		case 'usernameSuccess':
 			usernameStore.set(message.payload.username);
 			dannyBucksStore.set(message.payload.dannyBucks ?? 0); // Expect balance with success
-			// Backend should follow up with current player list and game state
-			// Setting gameState here might be redundant if backend sends gameStateUpdate
-			// gameStateStore.set('WaitingForPlayers'); // Or whatever the next state is
+			// Process initial player list if provided
+			if (Array.isArray(message.payload.players)) {
+				playersStore.set(message.payload.players as PlayerInfo[]);
+			}
+			// Setting gameState here is redundant, rely on backend gameStateUpdate message
+			// gameStateStore.set('WaitingForPlayers');
 			break;
 		case 'usernameFailure':
 			// UI should handle showing this error based on the store value
@@ -199,13 +202,35 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			playersStore.set(message.payload.players as PlayerInfo[]);
 			break;
 		case 'gameStateUpdate':
-			// Assuming payload is { state: GameState, ...other relevant data }
-			gameStateStore.set(message.payload.state as GameState);
+			// Assuming payload is { state: GameState, dealerHand?: DealerHand, dannyBucks?: number, ... }
+			const receivedPayload = message.payload; // Store payload first
+			console.log('Received gameStateUpdate payload:', receivedPayload); // Log raw payload
+			const newState = receivedPayload.gameState as GameState; // Assign state - FIX TYPO: gameState not state
+			console.log('Extracted newState:', newState); // Log extracted state *before* setting store
+			gameStateStore.set(newState); // Set the store
+
+			// Update dealer hand if included in the payload
+			if (message.payload.dealerHand) {
+				// Ensure the structure matches DealerHand type (especially 'revealed')
+				const dealerData = message.payload.dealerHand;
+				if (dealerData.revealed && dealerData.highHand && dealerData.lowHand) {
+					dealerHandStore.set({
+						revealed: dealerData.revealed as Card[],
+						highHand: dealerData.highHand as Card[],
+						lowHand: dealerData.lowHand as Card[],
+						isAceHighPaiGow: dealerData.isAceHighPaiGow as boolean,
+					});
+				} else {
+					console.warn('Received gameStateUpdate with incomplete dealerHand data:', dealerData);
+				}
+			}
+
 			// Reset stores based on state transitions
-			if (message.payload.state === 'Betting') {
+			if (newState === 'Betting') {
 				lastResultStore.set(null);
 				myHandStore.set(null);
-				dealerHandStore.set(null);
+				// Don't clear dealerHandStore here, might be needed briefly for display
+				// dealerHandStore.set(null);
 			}
 			// Update balance if included with state update
 			if (typeof message.payload.dannyBucks === 'number') {
@@ -262,13 +287,13 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 		// Add cases for other messages like 'playerJoined', 'playerLeft'
 		case 'playerJoined':
 			console.log(`Player joined: ${message.payload.username}`);
-			// Requesting full list might be more robust:
-			// sendWebSocketMessage({ type: 'requestPlayerList', payload: {} });
+			// Requesting full list is more robust than trying to patch locally
+			sendWebSocketMessage({ type: 'requestPlayerList', payload: {} });
 			break;
 		case 'playerLeft':
 			console.log(`Player left: ${message.payload.username}`);
-			// Requesting full list might be more robust:
-			// sendWebSocketMessage({ type: 'requestPlayerList', payload: {} });
+			// Requesting full list is more robust
+			sendWebSocketMessage({ type: 'requestPlayerList', payload: {} });
 			break;
 		default:
 			console.warn(`Unhandled WebSocket message type: ${message.type}`);

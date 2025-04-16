@@ -140,32 +140,32 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 14. **[x] Frontend: Create Basic Game Table View Component**
     * Create the main Svelte component for the game interface (e.g., `src/routes/+page.svelte` or a dedicated component).
     * Structure the layout (Dealer area, Player area, Opponent list).
-    * **[ ] Verify:** Component renders without errors when the user has a username and is theoretically "at the table". Basic layout areas are visible.
+    * **[x] Verify:** Component renders without errors when the user has a username and is theoretically "at the table". Basic layout areas are visible.
 
-15. **[ ] Frontend: Display Basic Game State (Players, DB, Phase)**
+15. **[x] Frontend: Display Basic Game State (Players, DB, Phase)**
     * In the Table View component, subscribe to relevant stores (`usernameStore`, `playersStore`, `dannyBucksStore`, `gameStateStore`).
     * Display the current player's username and DannyBucks balance.
     * Display a list of other connected players' usernames.
     * Display the current game phase/status message (e.g., "Place your bet", "Dealer has Ace-High Pai Gow!", "Set your hand").
-    * **[ ] Verify:** Connect multiple clients with unique usernames. Verify own username/DB shows correctly. Verify list of other players updates as they join. Verify game status text changes based on backend `gameStateUpdate` messages reflected in the store.
+    * **[x] Verify:** Connect multiple clients with unique usernames. Verify own username/DB shows correctly. Verify list of other players updates as they join. Verify game status text changes based on backend `gameStateUpdate` messages reflected in the store.
 
-16. **[ ] Frontend: Display Dealer's Face-Up Hand & Set Hands**
+16. **[x] Frontend: Display Dealer's Face-Up Hand & Set Hands**
     * Subscribe to the `dealerHandStore`.
     * When dealer hand data is available, render the dealer's 7 face-up cards (using simple text/CSS like "AH", "KC").
     * Render the dealer's set 2-card and 5-card hands clearly separated.
     * Clearly indicate if an Ace-High Push occurred (e.g., using text from `gameStateStore`).
-    * **[ ] Verify:** Trigger backend dealing/dealer setting. Verify all 7 dealer cards are shown face-up. Verify the dealer's set high/low hands are displayed correctly based on store data. Verify Ace-High push status is clearly communicated visually when applicable.
+    * **[x] Verify:** Trigger backend dealing/dealer setting. Verify all 7 dealer cards are shown face-up. Verify the dealer's set high/low hands are displayed correctly based on store data. Verify Ace-High push status is clearly communicated visually when applicable.
 
-17. **[ ] Frontend: Display Player's 7 Cards (Text/CSS)**
+17. **[x] Frontend: Display Player's 7 Cards (Text/CSS)**
     * Subscribe to `myHandStore`.
     * When the player's hand is dealt, render the 7 cards using text/CSS representation.
-    * **[ ] Verify:** Trigger backend dealing. Verify the 7 cards dealt to the specific client are displayed correctly based on store data.
+    * **[x] Verify:** Trigger backend dealing. Verify the 7 cards dealt to the specific client are displayed correctly based on store data.
 
-18. **[ ] Frontend: Implement Fixed Bet UI Button**
+18. **[x] Frontend: Implement Fixed Bet UI Button**
     * Display a "Place Bet" button, enabled only during the 'Betting' game state.
     * On click, call the WebSocket service to send the `placeBet` message (with the fixed amount implicitly known by the backend for MVP).
     * Disable the button after clicking or when the state changes.
-    * **[ ] Verify:** Button appears only during betting phase. Clicking sends `placeBet` message. Button disables appropriately.
+    * **[x] Verify:** Button appears only during betting phase. Clicking sends `placeBet` message. Button disables appropriately.
 
 19. **[ ] Frontend: Implement Player Hand Setting UI Interaction**
     * Make the player's displayed 7 cards interactive (e.g., clickable) *only* when the game state is `playerTurn` (and not Ace-High Push).
@@ -262,3 +262,4 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 -   *(Example)* Decided to simplify House Way rule for Four of a Kind (7s-10s) to always keep together for MVP AI simplicity.
 -   *(Example)* Network latency on home server sometimes causes slight delay in state updates, acceptable for friends but monitor.
 -   *(Example)* Biome setup required specific VS Code settings adjustment.
+-   **TODO (Cleanup):** Remove temporary "Place Bet" and "Start Game" buttons added to `apps/frontend/src/routes/+page.svelte` during Task 17 verification. These should be replaced by proper UI elements in Tasks 18 & subsequent UI tasks. (Added: 2025-04-15)

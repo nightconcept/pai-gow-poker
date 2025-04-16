@@ -1,10 +1,18 @@
 <script lang="ts">
 	// Removed onMount import, kept onDestroy for unsubscribing
 	import { onDestroy } from 'svelte';
+	import { get } from 'svelte/store'; // Import get
 	import {
 		usernameStore,
 		gameStateStore,
+		playersStore, // Added
+		dannyBucksStore, // Added
+		dealerHandStore, // Added
+		myHandStore, // Added
 		type GameState,
+		type PlayerInfo, // Added
+		type DealerHand, // Added
+		type Card, // Added
 	} from '$lib/stores/game';
 	import {
 		connectWebSocket, // Keep for reconnect buttons
@@ -23,31 +31,48 @@
 
 	// --- Reactive Subscriptions ---
 	let currentUsername: string | null = null;
-	let currentGameState: GameState = 'Connecting'; // Initial state might be set by layout now
+	// let currentGameState: GameState = 'Connecting'; // Removed for auto-subscription
 	let currentConnectionStatus: ConnectionStatus = 'closed'; // Initial state
 	let currentConnectionError: string | null = null;
-
+	let currentPlayers: PlayerInfo[] = []; // Added
+	let currentDannyBucks: number = 0; // Added
+	let currentDealerHand: DealerHand | null = null; // Added
+	let currentMyHand: Card[] | null = null; // Added
+	
 	const unsubscribeUsername = usernameStore.subscribe((value) => {
 		currentUsername = value;
 	});
-	const unsubscribeGameState = gameStateStore.subscribe((value) => {
-		currentGameState = value;
-		// Clear local form error when game state changes significantly
-		if (value !== 'NeedsUsername') {
-			localError = null;
-		}
-	});
+	// const unsubscribeGameState = gameStateStore.subscribe((value) => { // Removed
+	// 	currentGameState = value; // Removed
+	// 	// Clear local form error when game state changes significantly // Removed
+	// 	if (value !== 'NeedsUsername') { // Removed
+	// 		localError = null; // Removed
+	// 	} // Removed
+	// }); // Removed
 	const unsubscribeConnectionStatus = connectionStatus.subscribe((value) => {
 		currentConnectionStatus = value;
 	});
 	const unsubscribeConnectionError = connectionError.subscribe((value) => {
 		currentConnectionError = value;
 		// If a connection error occurs while trying to set username, show it
-		if (currentGameState === 'NeedsUsername' && value) {
+		// Use get() here as we don't have the reactive variable anymore
+		if (get(gameStateStore) === 'NeedsUsername' && value) {
 			localError = value;
 		}
 	});
-
+	const unsubscribePlayers = playersStore.subscribe((value) => { // Added
+		currentPlayers = value; // Added
+	}); // Added
+	const unsubscribeDannyBucks = dannyBucksStore.subscribe((value) => { // Added
+		currentDannyBucks = value; // Added
+	}); // Added
+	const unsubscribeDealerHand = dealerHandStore.subscribe((value) => { // Added
+		currentDealerHand = value; // Added
+	}); // Added
+	const unsubscribeMyHand = myHandStore.subscribe((value) => { // Added
+		currentMyHand = value; // Added
+	}); // Added
+	
 	// --- Lifecycle ---
 	// onMount connection logic removed, handled in layout
 	// onDestroy connection closing removed, handled by browser tab closure or explicit disconnect button (future)
@@ -56,9 +81,13 @@
 	onDestroy(() => {
 		console.log('Page destroying. Unsubscribing from stores.');
 		unsubscribeUsername();
-		unsubscribeGameState();
+		// unsubscribeGameState(); // Removed
 		unsubscribeConnectionStatus();
 		unsubscribeConnectionError();
+		unsubscribePlayers(); // Added
+		unsubscribeDannyBucks(); // Added
+		unsubscribeDealerHand(); // Added
+		unsubscribeMyHand(); // Added
 	});
 
 
@@ -90,6 +119,44 @@
 		// The URL should be handled within the connectWebSocket function now
 		connectWebSocket();
 	}
+
+	// --- Event Handlers ---
+	function handlePlaceBetClick() {
+		console.log('Place Bet button clicked');
+		// MVP uses fixed bet amount defined on backend
+		sendWebSocketMessage({ type: 'placeBet', payload: {} });
+	}
+
+	// --- Temporary Test Handlers ---
+	// Keep handleTempStartGame for now until proper host controls exist
+	function handleTempStartGame() {
+		console.log('Sending temp startGame message');
+		sendWebSocketMessage({ type: 'startGame', payload: {} });
+	}
+
+
+	// --- Helper Functions ---
+	/** Renders a card object into a string like "AH" or "TS" */
+	function renderCard(card: Card | undefined | null): string {
+		if (!card) return '';
+		if (card.rank === 'JOKER') return 'JK';
+		// Use 'T' for 10
+		const rankDisplay = card.rank === '10' ? 'T' : card.rank;
+		// Use first letter of suit
+		const suitDisplay = card.suit ? card.suit.charAt(0) : ''; // Handle potential missing suit for Joker
+		return `${rankDisplay}${suitDisplay}`;
+	}
+
+	/** Renders an array of cards into a space-separated string */
+	function renderHand(hand: Card[] | undefined | null): string {
+		if (!hand || hand.length === 0) return '(No cards)';
+		return hand.map(renderCard).join(' ');
+	}
+
+	// --- Reactive Logging ---
+	$: { // Log whenever the store value changes as seen by the component
+		console.log('COMPONENT sees $gameStateStore change:', $gameStateStore);
+	}
 </script>
 
 <div class="container mx-auto p-4">
@@ -98,29 +165,109 @@
 	{#if currentUsername}
 		<!-- === Main Game View (Placeholder) === -->
 		<div class="p-4 border rounded bg-green-100">
-			<h2 class="text-xl mb-2">Welcome, {currentUsername}!</h2>
-			<p>Current Game State: <strong>{currentGameState}</strong></p>
+			<div class="flex justify-between items-center mb-2">
+				<h2 class="text-xl">Welcome, {currentUsername}!</h2>
+				<span class="font-semibold">💰 {currentDannyBucks} DB</span>
+			</div>
+			<p class="text-center font-medium mb-3">Game State: <strong class="uppercase">{$gameStateStore}</strong></p> <!-- Use $gameStateStore -->
 			<!-- === Game Table Layout === -->
-			<div class="mt-4 grid grid-cols-3 gap-4">
-				<!-- Dealer Area (Top Span) -->
+			<div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+				<!-- Dealer Area (Top Span on small, still top on medium+) -->
 				<div class="col-span-3 p-4 border rounded bg-blue-100 min-h-[150px]">
 					<h3 class="text-lg font-semibold mb-2">Dealer Area</h3>
-					<!-- Dealer cards and status will go here -->
-					<p class="text-sm text-gray-600">(Dealer info placeholder)</p>
+					{#if currentDealerHand}
+						{#if currentDealerHand.isAceHighPaiGow}
+							<p class="text-red-600 font-bold mb-2">Dealer has Ace-High Pai Gow!</p>
+						{/if}
+						<div class="mb-2">
+							<span class="font-medium">Revealed (7):</span>
+							<span class="ml-2 font-mono text-sm bg-white px-1 py-0.5 rounded">{renderHand(currentDealerHand.revealed)}</span>
+						</div>
+						<div class="mb-1">
+							<span class="font-medium">High Hand (5):</span>
+							<span class="ml-2 font-mono text-sm bg-white px-1 py-0.5 rounded">{renderHand(currentDealerHand.highHand)}</span>
+						</div>
+						<div>
+							<span class="font-medium">Low Hand (2):</span>
+							<span class="ml-2 font-mono text-sm bg-white px-1 py-0.5 rounded">{renderHand(currentDealerHand.lowHand)}</span>
+						</div>
+					{:else if $gameStateStore === 'Dealing' || $gameStateStore === 'Betting' || $gameStateStore === 'WaitingForPlayers'} <!-- Use $gameStateStore -->
+						<p class="text-sm text-gray-500 italic">Waiting for deal...</p>
+					{:else}
+						<p class="text-sm text-gray-600">(Dealer info not available yet)</p>
+					{/if}
 				</div>
 
-				<!-- Player Area (Bottom Left/Center) -->
-				<div class="col-span-3 md:col-span-2 p-4 border rounded bg-yellow-100 min-h-[200px]">
+				<!-- Player Area (Middle on small, bottom left/center on medium+) -->
+				<div class="col-span-1 md:col-span-2 p-4 border rounded bg-yellow-100 min-h-[200px]">
 					<h3 class="text-lg font-semibold mb-2">{currentUsername}'s Area</h3>
-					<!-- Player hand, betting controls, hand setting UI will go here -->
-					<p class="text-sm text-gray-600">(Player hand & actions placeholder)</p>
+					<!-- DEBUGGING -->
+					<p class="my-2 p-1 bg-red-200 text-red-800 font-bold">DEBUG State Seen by Template: ["{$gameStateStore}"]</p>
+					<!-- END DEBUGGING -->
+					<div class="my-4">
+						<h4 class="font-medium mb-1">Your Hand (7 Cards):</h4>
+						{#if currentMyHand}
+							<p class="font-mono text-lg bg-white px-2 py-1 rounded shadow-sm inline-block">
+								{renderHand(currentMyHand)}
+							</p>
+						{:else if $gameStateStore === 'Dealing' || $gameStateStore === 'Betting' || $gameStateStore === 'WaitingForPlayers'} <!-- Use $gameStateStore -->
+							<p class="text-sm text-gray-500 italic">Waiting for cards...</p>
+						{:else}
+							<p class="text-sm text-gray-600">(No hand dealt yet)</p>
+						{/if}
+					</div>
+
+					<!-- === Betting Area === -->
+					<div class="mt-4 pt-4 border-t">
+						{#if $gameStateStore === 'Betting'} <!-- Use $gameStateStore -->
+							<button
+								class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
+								on:click={handlePlaceBetClick}
+								disabled={$gameStateStore !== 'Betting'}
+							>
+								Place Bet (Fixed Amount)
+							</button>
+						{:else if $gameStateStore !== 'WaitingForPlayers'} <!-- Use $gameStateStore -->
+							<!-- Show placeholder or status when not in betting phase -->
+							<p class="text-sm text-gray-500 italic">
+								(Betting closed for state: {$gameStateStore}) <!-- Use $gameStateStore -->
+							</p>
+						{/if}
+					</div>
+					<!-- === END Betting Area === -->
+
+
+					<!-- === TEMPORARY TEST BUTTONS (Start Game Only) === -->
+					<div class="mt-2 space-x-2">
+						{#if $gameStateStore === 'Betting'} <!-- Use $gameStateStore -->
+							<button
+								class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-1 px-3 rounded text-sm"
+								on:click={handleTempStartGame}
+								disabled={$gameStateStore !== 'Betting'}
+							>
+								TEMP: Start Game
+							</button>
+						{/if}
+					</div>
+					<!-- === END TEMPORARY TEST BUTTONS === -->
+
+
+					<!-- Hand setting UI will go here later -->
+					<p class="text-sm text-gray-600 mt-4">(Hand Setting Placeholder)</p>
 				</div>
 
-				<!-- Opponent List (Bottom Right) -->
-				<div class="col-span-3 md:col-span-1 p-4 border rounded bg-purple-100 min-h-[200px]">
-					<h3 class="text-lg font-semibold mb-2">Other Players</h3>
-					<!-- List of other players' usernames and status will go here -->
-					<p class="text-sm text-gray-600">(Opponent list placeholder)</p>
+				<!-- Opponent List (Bottom on small, bottom right on medium+) -->
+				<div class="col-span-1 md:col-span-1 p-4 border rounded bg-purple-100 min-h-[200px]">
+					<h3 class="text-lg font-semibold mb-2">Other Players ({currentPlayers.length})</h3>
+					{#if currentPlayers.length > 0}
+						<ul class="list-disc list-inside">
+							{#each currentPlayers as player (player.username)}
+								<li>{player.username}</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="text-sm text-gray-500 italic">Waiting for others...</p>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -136,10 +283,10 @@
 				{currentConnectionStatus === 'closed' ? 'bg-gray-200 text-gray-800' : ''}
 				{currentConnectionStatus === 'error' ? 'bg-red-200 text-red-800' : ''}"
 			>
-				{#if currentConnectionStatus === 'open' && currentGameState === 'NeedsUsername'}
+				{#if currentConnectionStatus === 'open' && $gameStateStore === 'NeedsUsername'} <!-- Use $gameStateStore -->
 					Connected! Please enter a username.
 				{:else if currentConnectionStatus === 'open'}
-					Connected (State: {currentGameState}) <!-- Should not happen if username not set -->
+					Connected (State: {$gameStateStore}) <!-- Use $gameStateStore --> <!-- Should not happen if username not set -->
 				{:else if currentConnectionStatus === 'connecting'}
 					Connecting to server...
 				{:else if currentConnectionStatus === 'closed'}
@@ -150,7 +297,7 @@
 			</div>
 
 			<!-- Username Form (Show only if connected and needs username) -->
-			{#if currentConnectionStatus === 'open' && currentGameState === 'NeedsUsername'}
+			{#if currentConnectionStatus === 'open' && $gameStateStore === 'NeedsUsername'} <!-- Use $gameStateStore -->
 				<form on:submit|preventDefault={handleUsernameSubmit}>
 					<div class="mb-4">
 						<label for="username" class="block text-sm font-medium text-gray-700 mb-1">
