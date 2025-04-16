@@ -177,13 +177,13 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Disable interaction after confirming or when state changes.
     * **[x] Verify:** Card interaction is enabled only during player turn (and not Ace-High Push). Can select 2 cards; visual feedback works. Can select 5 cards; visual feedback works. Submit button enables only with valid 2/5 split. Client validation provides warnings. Confirm button sends correct `setPlayerHand` message. Interaction disables appropriately. (Done: 2025-04-15)
 
-20. **[ ] Frontend: Display Round Results (Win/Loss/Push, Balance)**
-    * Subscribe to `lastResultStore` and `dannyBucksStore`.
-    * When round results are received, display the outcome clearly (e.g., "You WIN!", "You LOSE!", "PUSH!").
+20. **[x] Frontend: Display Round Results (Win/Loss/Push, Balance)**
+* Subscribe to `lastResultStore` and `dannyBucksStore`.
+* When round results are received, display the outcome clearly (e.g., "You WIN!", "You LOSE!", "PUSH!").
     * Show the amount won or lost (if applicable for future commission).
     * Ensure the displayed DannyBucks balance updates automatically via the store binding.
     * Optionally show the player's and dealer's final set hands during results display.
-    * **[ ] Verify:** After backend processes outcomes, verify frontend displays correct Win/Loss/Push message based on store data. Verify DB balance display updates correctly.
+    * **[x] Verify:** After backend processes outcomes, verify frontend displays correct Win/Loss/Push message based on store data. Verify DB balance display updates correctly. (Done: 2025-04-15)
 
 ### MVP Sub-Phase 5: Basic Infrastructure & Deployment (MVP)
 
@@ -262,4 +262,5 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 -   *(Example)* Decided to simplify House Way rule for Four of a Kind (7s-10s) to always keep together for MVP AI simplicity.
 -   *(Example)* Network latency on home server sometimes causes slight delay in state updates, acceptable for friends but monitor.
 -   *(Example)* Biome setup required specific VS Code settings adjustment.
--   **TODO (Cleanup):** Remove temporary "Place Bet" and "Start Game" buttons added to `apps/frontend/src/routes/+page.svelte` during Task 17 verification. These should be replaced by proper UI elements in Tasks 18 & subsequent UI tasks. (Added: 2025-04-15)
+-   **[x] TODO (Cleanup):** Remove temporary "Place Bet" and "Start Game" buttons added to `apps/frontend/src/routes/+page.svelte` during Task 17 verification. These should be replaced by proper UI elements in Tasks 18 & subsequent UI tasks. (Completed: 2025-04-15)
+-   **[x] TODO (Backend):** Implement handling for the `readyForNextRound` message sent by the frontend after round results are displayed (including Ace-High Push). This should transition the game state back to `Betting`. (Completed: 2025-04-15)

@@ -14,6 +14,7 @@ export class Player {
 	currentBet: number | null; // Amount bet for the current round
 	hasSetHand: boolean; // Flag if player has set their hand this round
 	isHost: boolean; // Is this player the host? (Simplified for MVP)
+	isReadyForNextRound: boolean; // Flag if player has indicated they are ready for the next round
 	ws: WebSocket; // Reference to the player's WebSocket connection
 
 	/**
@@ -32,5 +33,6 @@ export class Player {
 		this.currentBet = null;
 		this.hasSetHand = false;
 		this.isHost = false; // Host status determined later
+		this.isReadyForNextRound = false; // Player is not ready initially
 	}
 }

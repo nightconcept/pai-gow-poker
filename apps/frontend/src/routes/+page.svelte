@@ -13,6 +13,8 @@
 		type PlayerInfo, // Added
 		type DealerHand, // Added
 		type Card, // Added
+		lastResultStore, // Added for Task 20
+		type RoundResult, // Added for Task 20
 	} from '$lib/stores/game';
 	import {
 		connectWebSocket, // Keep for reconnect buttons
@@ -40,6 +42,7 @@
 	let currentDannyBucks: number = 0; // Added
 	let currentDealerHand: DealerHand | null = null; // Added
 	let currentMyHand: Card[] | null = null; // Added
+	let currentLastResult: RoundResult | null = null; // Added for Task 20
 	
 	const unsubscribeUsername = usernameStore.subscribe((value) => {
 		currentUsername = value;
@@ -74,6 +77,9 @@
 	const unsubscribeMyHand = myHandStore.subscribe((value) => { // Added
 		currentMyHand = value; // Added
 	}); // Added
+	const unsubscribeLastResult = lastResultStore.subscribe((value) => { // Added for Task 20
+		currentLastResult = value; // Added for Task 20
+	}); // Added for Task 20
 	
 	// --- Lifecycle ---
 	// onMount connection logic removed, handled in layout
@@ -90,6 +96,7 @@
 		unsubscribeDannyBucks(); // Added
 		unsubscribeDealerHand(); // Added
 		unsubscribeMyHand(); // Added
+		unsubscribeLastResult(); // Added for Task 20
 	});
 
 
@@ -128,7 +135,7 @@
 		// MVP uses fixed bet amount defined on backend
 		sendWebSocketMessage({ type: 'placeBet', payload: {} });
 	}
-
+  
 	// --- Temporary Test Handlers ---
 	// Keep handleTempStartGame for now until proper host controls exist
 	function handleTempStartGame() {
@@ -192,6 +199,14 @@
 		// Optionally clear selection after sending, or wait for backend confirmation/state change
 		// selectedLowHandIndices.clear();
 		// selectedLowHandIndices = selectedLowHandIndices;
+	}
+
+	function handleNextRoundClick() {
+		console.log('Sending readyForNextRound message');
+		sendWebSocketMessage({ type: 'readyForNextRound', payload: {} });
+		// Optionally clear the last result immediately on click,
+		// or wait for the backend to transition state which should clear it.
+		// lastResultStore.set(null);
 	}
 
 	// --- Helper Functions ---
@@ -327,7 +342,6 @@
 					</div>
 					<!-- === END Betting Area === -->
 
-
 					<!-- === TEMPORARY TEST BUTTONS (Start Game Only) === -->
 					<div class="mt-2 space-x-2">
 						{#if $gameStateStore === 'Betting'} <!-- Use $gameStateStore -->
@@ -365,6 +379,41 @@
 						{/if}
 					</div>
 					<!-- === END Hand Setting Area === -->
+
+					<!-- === Round Result Area (Task 20) === -->
+					<div class="mt-4 pt-4 border-t">
+						{#if $lastResultStore}
+							<h4 class="font-medium mb-2">Round Result</h4>
+							<div
+								class="p-3 rounded text-center font-bold text-lg
+								{$lastResultStore.outcome === 'Win' ? 'bg-green-200 text-green-800' : ''}
+								{$lastResultStore.outcome === 'Loss' || $lastResultStore.outcome === 'Foul' ? 'bg-red-200 text-red-800' : ''}
+								{$lastResultStore.outcome === 'Push' ? 'bg-gray-200 text-gray-800' : ''}"
+							>
+								{$lastResultStore.outcome.toUpperCase()}
+								{#if $lastResultStore.outcome === 'Win' || $lastResultStore.outcome === 'Loss'}
+									({$lastResultStore.amount > 0 ? '+' : ''}{$lastResultStore.amount} DB)
+								{/if}
+							</div>
+							<p class="text-center mt-1 text-sm">
+								New Balance: 💰 {$dannyBucksStore} DB
+							</p>
+							<!-- Optionally show hands here later -->
+
+							<!-- Add button to proceed -->
+							<div class="mt-3 text-center">
+								<button
+									class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+									on:click={handleNextRoundClick}
+								>
+									Start Next Round
+								</button>
+							</div>
+						{:else if $gameStateStore === 'Showdown'}
+							<p class="text-sm text-blue-700 italic">Determining results...</p>
+						{/if}
+					</div>
+					<!-- === END Round Result Area === -->
 				</div>
 
 				<!-- Opponent List (Bottom on small, bottom right on medium+) -->

@@ -120,6 +120,9 @@ wss.on('connection', (ws: PlayerWebSocket) => {
 				case 'requestPlayerList': // Handle request for player list
 					handleRequestPlayerList(currentPlayerId, ws);
 					break;
+				case 'readyForNextRound': // Add handler for ready signal
+					handleReadyForNextRound(currentPlayerId, parsedMessage, ws);
+					break;
 				// Add other message handlers here
 				default:
 					console.warn(`Unknown message type received: ${parsedMessage.type}`); // Changed to warn
@@ -542,6 +545,94 @@ function handleSetPlayerHand(playerId: string, message: WebSocketMessage, ws: Pl
 	}
 }
 
+/**
+	* Handles the 'readyForNextRound' message from a client.
+	* @param {string} playerId - The ID of the player sending the message.
+	* @param {WebSocketMessage} message - The parsed message object.
+	* @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
+	*/
+function handleReadyForNextRound(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+	const player = gameTable.getPlayerByConnectionId(playerId);
+
+	if (!player || !player.username) {
+		ws.send(JSON.stringify({ type: 'error', payload: { message: 'Cannot signal ready: Player not found or username not set.' } }));
+		return;
+	}
+
+	// Validate game state
+	if (gameTable.gameState !== 'RoundOver') {
+		ws.send(JSON.stringify({ type: 'error', payload: { message: `Cannot signal ready. Game state must be 'RoundOver', but is currently '${gameTable.gameState}'.` } }));
+		return;
+	}
+
+	// Mark player as ready
+	player.isReadyForNextRound = true;
+	console.log(`Player ${playerId} (${player.username}) is ready for the next round.`);
+
+	// Send confirmation back to player (optional)
+	ws.send(JSON.stringify({ type: 'readyConfirm', payload: { message: 'Ready status confirmed.' } }));
+
+	// Broadcast that the player is ready (optional, can be noisy)
+	// broadcast({
+	// 	type: 'playerReady',
+	// 	payload: { playerId: playerId, username: player.username }
+	// }, playerId);
+
+	// --- Check if all active players are ready ---
+	// Active players are those with a username and enough funds to potentially bet (or just > 0 DB)
+	const activePlayers = Array.from(gameTable.players.values()).filter(
+		p => p.username && p.dannyBucks > 0 // Consider players with 0 DB as inactive for starting next round
+	);
+
+	const allActivePlayersReady = activePlayers.every(p => p.isReadyForNextRound);
+
+	if (allActivePlayersReady && activePlayers.length > 0) {
+		console.log("All active players are ready. Starting next round...");
+
+		// --- Reset for Next Round (Move reset logic here from showdown) ---
+		console.log("Resetting player states for betting...");
+		gameTable.players.forEach(p => {
+			// Reset round-specific states for ALL players, even inactive ones
+			p.currentHand = null;
+			p.setHighHand = null;
+			p.setLowHand = null;
+			p.currentBet = null;
+			p.hasSetHand = false;
+			p.isReadyForNextRound = false; // Reset readiness for the *next* round end
+
+			// Check if player ran out of money (inform again if needed, though already done in showdown)
+			if (p.dannyBucks <= 0 && p.ws.readyState === p.ws.OPEN) {
+				// Maybe send a different message like 'waitingForFunds' or just rely on UI disabling bet
+				// console.log(`Player ${p.id} (${p.username}) still has 0 DB.`);
+			}
+		});
+
+		// Reset dealer state
+		gameTable.dealerHand = {
+			dealtCards: null,
+			highHand: null,
+			lowHand: null,
+			isAceHighPaiGow: false,
+		};
+
+		// Transition back to Betting state
+		gameTable.gameState = 'Betting';
+		broadcast({
+			type: 'gameStateUpdate',
+			payload: {
+				gameState: gameTable.gameState,
+				message: 'Place your bets for the next round!'
+			}
+		});
+		console.log(`--- New Round Ready. Game state transitioned to: ${gameTable.gameState} ---`);
+
+	} else {
+		console.log(`Waiting for other players to be ready. Total active: ${activePlayers.length}, Ready: ${activePlayers.filter(p => p.isReadyForNextRound).length}`);
+		// Optionally inform the player who just readied how many more are needed
+		// ws.send(JSON.stringify({ type: 'waitingForOthersReady', payload: { needed: activePlayers.length - activePlayers.filter(p => p.isReadyForNextRound).length } }));
+	}
+}
+
 
 /**
 	* Handles the showdown phase: comparing hands, determining outcomes, updating balances.
@@ -689,8 +780,9 @@ function handleShowdown() {
 		player.currentHand = null;
 		player.setHighHand = null;
 		player.setLowHand = null;
-		player.currentBet = null; // Reset bet for next round
+		player.currentBet = null;
 		player.hasSetHand = false;
+		player.isReadyForNextRound = false; // Reset readiness here too, although handleReadyForNextRound will do it again before betting
 		// Check if player ran out of money
 		if (player.dannyBucks <= 0) {
 			console.log(`Player ${player.id} (${player.username}) has run out of DannyBucks.`);
@@ -709,13 +801,13 @@ function handleShowdown() {
 		isAceHighPaiGow: false,
 	};
 
-	// Transition back to Betting state
-	gameTable.gameState = 'Betting';
+	// Transition to RoundOver state, waiting for players to signal readiness
+	gameTable.gameState = 'RoundOver';
 	broadcast({
 		type: 'gameStateUpdate',
 		payload: {
 			gameState: gameTable.gameState,
-			message: 'Place your bets for the next round!'
+			message: 'Round over. Click "Start Next Round" when ready.'
 		}
 	});
 	console.log(`--- Showdown Complete. Game state transitioned to: ${gameTable.gameState} ---`);
