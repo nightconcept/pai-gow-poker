@@ -100,9 +100,28 @@
 		<div class="p-4 border rounded bg-green-100">
 			<h2 class="text-xl mb-2">Welcome, {currentUsername}!</h2>
 			<p>Current Game State: <strong>{currentGameState}</strong></p>
-			<!-- TODO: Add actual game components here -->
-			<div class="mt-4 p-6 bg-gray-200 rounded">
-				Game Area Placeholder
+			<!-- === Game Table Layout === -->
+			<div class="mt-4 grid grid-cols-3 gap-4">
+				<!-- Dealer Area (Top Span) -->
+				<div class="col-span-3 p-4 border rounded bg-blue-100 min-h-[150px]">
+					<h3 class="text-lg font-semibold mb-2">Dealer Area</h3>
+					<!-- Dealer cards and status will go here -->
+					<p class="text-sm text-gray-600">(Dealer info placeholder)</p>
+				</div>
+
+				<!-- Player Area (Bottom Left/Center) -->
+				<div class="col-span-3 md:col-span-2 p-4 border rounded bg-yellow-100 min-h-[200px]">
+					<h3 class="text-lg font-semibold mb-2">{currentUsername}'s Area</h3>
+					<!-- Player hand, betting controls, hand setting UI will go here -->
+					<p class="text-sm text-gray-600">(Player hand & actions placeholder)</p>
+				</div>
+
+				<!-- Opponent List (Bottom Right) -->
+				<div class="col-span-3 md:col-span-1 p-4 border rounded bg-purple-100 min-h-[200px]">
+					<h3 class="text-lg font-semibold mb-2">Other Players</h3>
+					<!-- List of other players' usernames and status will go here -->
+					<p class="text-sm text-gray-600">(Opponent list placeholder)</p>
+				</div>
 			</div>
 		</div>
 	{:else}

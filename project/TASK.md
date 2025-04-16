@@ -137,7 +137,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 
 *(Depends on MVP Sub-Phase 2 backend logic and MVP Sub-Phase 3 frontend setup)*
 
-14. **[ ] Frontend: Create Basic Game Table View Component**
+14. **[x] Frontend: Create Basic Game Table View Component**
     * Create the main Svelte component for the game interface (e.g., `src/routes/+page.svelte` or a dedicated component).
     * Structure the layout (Dealer area, Player area, Opponent list).
     * **[ ] Verify:** Component renders without errors when the user has a username and is theoretically "at the table". Basic layout areas are visible.
@@ -223,9 +223,9 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 
 ## Milestones
 
--   **[ ] M1: Backend Foundation Complete:** Tasks 1-4 finished. Basic connection and user identification works.
--   **[ ] M2: Core Game Logic Complete:** Tasks 5-9 finished. Backend can run a full Face-Up game round internally.
--   **[ ] M3: Frontend Connection & State Complete:** Tasks 10-13 finished. Frontend can connect, user can login, basic state sync works.
+-   **[x] M1: Backend Foundation Complete:** Tasks 1-4 finished. Basic connection and user identification works.
+-   **[x] M2: Core Game Logic Complete:** Tasks 5-9 finished. Backend can run a full Face-Up game round internally.
+-   **[x] M3: Frontend Connection & State Complete:** Tasks 10-13 finished. Frontend can connect, user can login, basic state sync works.
 -   **[ ] M4: MVP UI Interaction Complete:** Tasks 14-20 finished. Frontend UI allows playing the game based on backend state.
 -   **[ ] M5: MVP Deployed & Playable:** Tasks 21-24 finished. A playable version is accessible online via Vercel and Cloudflare Tunnel.
 
