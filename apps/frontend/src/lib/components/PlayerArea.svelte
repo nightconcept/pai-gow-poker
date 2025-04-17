@@ -145,14 +145,14 @@
 	</div>
 
 	<!-- === Betting Area === -->
-	<div class="mt-4 pt-4 border-t">
+	<div class="mt-4 pt-4">
 		{#if $gameStateStore === 'Betting'}
 			<button
 				class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50"
 				on:click={handlePlaceBetClick}
 				disabled={$gameStateStore !== 'Betting'}
 			>
-				Place Bet (Fixed Amount)
+				Place Bet ($10 DB)
 			</button>
 		{:else if $gameStateStore !== 'WaitingForPlayers'}
 			<!-- Show placeholder or status when not in betting phase -->
@@ -163,19 +163,17 @@
 	</div>
 	<!-- === END Betting Area === -->
 
-	<!-- === TEMPORARY TEST BUTTONS (Start Game Only) === -->
-	<div class="mt-2 space-x-2">
+	<div class="mt-4 pt-4 space-x-2">
 		{#if $gameStateStore === 'Betting'}
 			<button
 				class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-1 px-3 rounded text-sm"
 				on:click={handleTempStartGame}
 				disabled={$gameStateStore !== 'Betting'}
 			>
-				TEMP: Start Game
+				Start Game
 			</button>
 		{/if}
 	</div>
-	<!-- === END TEMPORARY TEST BUTTONS === -->
 
 
 	<!-- === Hand Setting Area === -->

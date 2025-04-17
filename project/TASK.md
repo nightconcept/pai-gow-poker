@@ -242,6 +242,7 @@ These are enhancments that will be done before milestone M5.
 - [x] Issue 6. Componentize the Dealer area, Player area, Other Players Area, and top bar which includes: welcome message, game state, and dannyBucks. (Done: 2025-04-16)
 - [x] Issue 7. Refactor username selection to it's own component from +page.svelte.
 - [ ] Issue 8. Fix DB amount.
+- [ ] Issue 9. Add a dark mode toggle component that uses Tailwind v4's dark mode features. Place the toggle right next to the Pai Gow Poker title on +page.svelte.
 
 ## Future Enhancements (Post-MVP)
 

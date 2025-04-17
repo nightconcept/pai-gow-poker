@@ -9,7 +9,6 @@
 		usernameStore
 	} from '$lib/stores/game';
 
-	// --- Reactive Subscriptions ---
 	let currentUsername: string | null = null;
 
 	const unsubscribeUsername = usernameStore.subscribe((value) => {
