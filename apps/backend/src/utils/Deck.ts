@@ -19,7 +19,7 @@ export class Deck {
 	 * @returns {Card[]} An array representing the deck.
 	 */
 	private generateDeck(): Card[] {
-		const suits = ['♠️', '♥️', '♦️', '♣️'];
+		const suits = ['Spades', 'Hearts', 'Diamonds', 'Clubs'];
 		const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 		const deck: Card[] = [];
 

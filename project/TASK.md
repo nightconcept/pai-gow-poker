@@ -226,12 +226,21 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 -   **[x] M1: Backend Foundation Complete:** Tasks 1-4 finished. Basic connection and user identification works.
 -   **[x] M2: Core Game Logic Complete:** Tasks 5-9 finished. Backend can run a full Face-Up game round internally.
 -   **[x] M3: Frontend Connection & State Complete:** Tasks 10-13 finished. Frontend can connect, user can login, basic state sync works.
--   **[ ] M4: MVP UI Interaction Complete:** Tasks 14-20 finished. Frontend UI allows playing the game based on backend state.
+-   **[x] M4: MVP UI Interaction Complete:** Tasks 14-20 finished. Frontend UI allows playing the game based on backend state.
 -   **[ ] M5: MVP Deployed & Playable:** Tasks 21-24 finished. A playable version is accessible online via Vercel and Cloudflare Tunnel.
 
 ---
 
-## Backlog / Future Enhancements (Post-MVP)
+## Enhancements (PRE-RELEASE)
+
+These are enhancments that will be done before milestone M5.
+- [ ] Issue 1. Center graphics vertically and horizontally. The ideal playing size should be half the width of 1920x1080 so that players can play half screen. (Frontend)
+- [x] Issue 2. Create a new Card component on the Frontend that will be the component that can be an image with a 1px CSS border applied OR a replica of a playing card with colored suit emojis. (Done: 2025-04-16)
+- [ ] Issue 3. Add a system/chat box that will display system messages such as the current phase for the player.
+- [ ] Issue 4. Add waits between states.
+- [ ] Issue 5. Make the the areas look more like a table.
+
+## Future Enhancements (Post-MVP)
 
 *(Items from PRD Roadmap Phase 2 onwards)*
 
@@ -242,7 +251,6 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 -   [ ] Implement Step Back Functionality (Advanced)
 -   [ ] Implement Variable Betting UI & Logic
 -   [ ] Implement Side Bets (Define rules/paytables first)
--   [ ] Implement Card Graphics (Image/SVG)
 -   [ ] Improve UI Polish & Animations
 -   [ ] Enhance Player Experience (Reconnects, Spectator Mode, Chat)
 -   [ ] Implement Database Integration (PostgreSQL/MongoDB/SQLite)

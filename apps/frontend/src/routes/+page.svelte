@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Removed onMount import, kept onDestroy for unsubscribing
 	import { onDestroy } from 'svelte';
-	import { get } from 'svelte/store'; // Import get
+	import { get } from 'svelte/store';
+	import CardComponent from '$lib/components/Card.svelte'; // Import the new Card component
 	import {
 		usernameStore,
 		gameStateStore,
@@ -209,23 +210,7 @@
 		// lastResultStore.set(null);
 	}
 
-	// --- Helper Functions ---
-	/** Renders a card object into a string like "AH" or "TS" */
-	function renderCard(card: Card | undefined | null): string {
-		if (!card) return '';
-		if (card.rank === 'JOKER') return 'JK';
-		// Use 'T' for 10
-		const rankDisplay = card.rank === '10' ? 'T' : card.rank;
-		// Use first letter of suit
-		const suitDisplay = card.suit ? card.suit.charAt(0) : ''; // Handle potential missing suit for Joker
-		return `${rankDisplay}${suitDisplay}`;
-	}
-
-	/** Renders an array of cards into a space-separated string */
-	function renderHand(hand: Card[] | undefined | null): string {
-		if (!hand || hand.length === 0) return '(No cards)';
-		return hand.map(renderCard).join(' ');
-	}
+	// --- Helper Functions (Removed renderCard and renderHand) ---
 
 	// --- Reactive Logging ---
 	$: { // Log whenever the store value changes as seen by the component
@@ -246,12 +231,12 @@
 	}
 </script>
 
-<div class="container mx-auto p-4">
+<main class="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
 	<h1 class="text-2xl font-bold mb-4 text-center">Pai Gow Poker</h1>
 
 	{#if currentUsername}
-		<!-- === Main Game View (Placeholder) === -->
-		<div class="p-4 border rounded bg-green-100">
+		<!-- === Main Game View === -->
+		<div class="w-full max-w-[960px] p-4 border rounded bg-green-100 shadow-lg">
 			<div class="flex justify-between items-center mb-2">
 				<h2 class="text-xl">Welcome, {currentUsername}!</h2>
 				<span class="font-semibold">💰 {currentDannyBucks} DB</span>
@@ -268,15 +253,27 @@
 						{/if}
 						<div class="mb-2">
 							<span class="font-medium">Revealed (7):</span>
-							<span class="ml-2 font-mono text-sm bg-white px-1 py-0.5 rounded">{renderHand(currentDealerHand.revealed)}</span>
+							<div class="ml-2 flex flex-wrap gap-1 mt-1">
+								{#each currentDealerHand.revealed as card (card.rank + card.suit)}
+									<CardComponent rank={card.rank} suit={card.suit} />
+								{/each}
+							</div>
 						</div>
 						<div class="mb-1">
 							<span class="font-medium">High Hand (5):</span>
-							<span class="ml-2 font-mono text-sm bg-white px-1 py-0.5 rounded">{renderHand(currentDealerHand.highHand)}</span>
+							<div class="ml-2 flex flex-wrap gap-1 mt-1">
+								{#each currentDealerHand.highHand as card (card.rank + card.suit)}
+									<CardComponent rank={card.rank} suit={card.suit} />
+								{/each}
+							</div>
 						</div>
 						<div>
 							<span class="font-medium">Low Hand (2):</span>
-							<span class="ml-2 font-mono text-sm bg-white px-1 py-0.5 rounded">{renderHand(currentDealerHand.lowHand)}</span>
+							<div class="ml-2 flex flex-wrap gap-1 mt-1">
+								{#each currentDealerHand.lowHand as card (card.rank + card.suit)}
+									<CardComponent rank={card.rank} suit={card.suit} />
+								{/each}
+							</div>
 						</div>
 					{:else if $gameStateStore === 'Dealing' || $gameStateStore === 'Betting' || $gameStateStore === 'WaitingForPlayers'} <!-- Use $gameStateStore -->
 						<p class="text-sm text-gray-500 italic">Waiting for deal...</p>
@@ -288,33 +285,30 @@
 				<!-- Player Area (Middle on small, bottom left/center on medium+) -->
 				<div class="col-span-1 md:col-span-2 p-4 border rounded bg-yellow-100 min-h-[200px]">
 					<h3 class="text-lg font-semibold mb-2">{currentUsername}'s Area</h3>
-					<!-- DEBUGGING -->
-					<p class="my-2 p-1 bg-red-200 text-red-800 font-bold">DEBUG State Seen by Template: ["{$gameStateStore}"]</p>
-					<!-- END DEBUGGING -->
 					<div class="my-4">
 						<h4 class="font-medium mb-1">Your Hand (7 Cards):</h4>
 						{#if currentMyHand}
 							<!-- Make cards clickable -->
 							<div class="p-2 border rounded border-gray-300 bg-gray-50">
-								{#each currentMyHand as card, index (index)}
-									<button
-										type="button"
-										class="inline-block font-mono text-lg px-2 py-1 rounded shadow-sm mx-0.5 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-150"
-										class:bg-white={!selectedLowHandIndices.has(index)}
-										class:text-black={!selectedLowHandIndices.has(index)}
-										class:bg-yellow-300={selectedLowHandIndices.has(index)}
-										class:text-yellow-900={selectedLowHandIndices.has(index)}
-										class:border-2={selectedLowHandIndices.has(index)}
-										class:border-yellow-500={selectedLowHandIndices.has(index)}
-										class:hover:bg-gray-100={!selectedLowHandIndices.has(index) && isHandSettingEnabled}
-										class:hover:bg-yellow-400={selectedLowHandIndices.has(index) && isHandSettingEnabled}
-										disabled={!isHandSettingEnabled}
-										on:click={() => handleCardClick(index)}
-										title={isHandSettingEnabled ? `Click to toggle selection for low hand (${selectedLowHandIndices.size}/2 selected)` : 'Hand setting not active'}
-									>
-										{renderCard(card)}
-									</button>
-								{/each}
+								<div class="flex flex-wrap gap-2"> <!-- Use flex-wrap and gap for layout -->
+									{#each currentMyHand as card, index (index)}
+										<div
+											role="button"
+											tabindex="0"
+											class="focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 rounded-md"
+											on:click={() => handleCardClick(index)}
+											on:keydown={(e) => e.key === 'Enter' && handleCardClick(index)}
+											title={isHandSettingEnabled ? `Click to toggle selection for low hand (${selectedLowHandIndices.size}/2 selected)` : 'Hand setting not active'}
+										>
+											<CardComponent
+												rank={card.rank}
+												suit={card.suit}
+												isSelected={selectedLowHandIndices.has(index)}
+												isDisabled={!isHandSettingEnabled}
+											/>
+										</div>
+									{/each} <!-- Correctly close the #each block here -->
+								</div> <!-- Close the flex container -->
 							</div>
 						{:else if $gameStateStore === 'Dealing' || $gameStateStore === 'Betting' || $gameStateStore === 'WaitingForPlayers'} <!-- Use $gameStateStore -->
 							<p class="text-sm text-gray-500 italic">Waiting for cards...</p>
@@ -433,7 +427,7 @@
 		</div>
 	{:else}
 		<!-- === Username Input / Connection Status === -->
-		<div class="max-w-md mx-auto p-6 border rounded shadow-md">
+		<div class="w-full max-w-md p-6 border rounded shadow-md bg-white">
 			<h2 class="text-xl font-semibold mb-4 text-center">Join Game</h2>
 
 			<!-- Connection Status Display -->
@@ -496,4 +490,4 @@
 			{/if}
 		</div>
 	{/if}
-</div>
+</main>
