@@ -240,6 +240,7 @@ These are enhancments that will be done before milestone M5.
 - [ ] Issue 4. Add waits between states.
 - [ ] Issue 5. Make the the areas look more like a table.
 - [x] Issue 6. Componentize the Dealer area, Player area, Other Players Area, and top bar which includes: welcome message, game state, and dannyBucks. (Done: 2025-04-16)
+- [ ] Issue 7. Refactor username selection to it's own component from +page.svelte.
 
 ## Future Enhancements (Post-MVP)
 
