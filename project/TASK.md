@@ -239,6 +239,7 @@ These are enhancments that will be done before milestone M5.
 - [ ] Issue 3. Add a system/chat box that will display system messages such as the current phase for the player.
 - [ ] Issue 4. Add waits between states.
 - [ ] Issue 5. Make the the areas look more like a table.
+- [x] Issue 6. Componentize the Dealer area, Player area, Other Players Area, and top bar which includes: welcome message, game state, and dannyBucks. (Done: 2025-04-16)
 
 ## Future Enhancements (Post-MVP)
 
