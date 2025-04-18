@@ -191,7 +191,7 @@
 				Confirm Hand Split
 			</button>
 			<p class="text-xs text-gray-500 mt-1">Select exactly 2 cards for your Low Hand by clicking them above.</p>
-		{:else if $gameStateStore === 'WaitingForOthers'}
+		{:else if $gameStateStore === 'PlayerAction'}
 			<p class="text-sm text-green-700 italic">Hand submitted. Waiting for other players...</p>
 		{:else if $gameStateStore !== 'WaitingForPlayers' && $gameStateStore !== 'Betting' && $gameStateStore !== 'Dealing'}
 			<p class="text-sm text-gray-500 italic">(Hand setting not active for state: {$gameStateStore})</p>

@@ -17,6 +17,7 @@ import {
 	type DealerHand,
 	type GameState,
 	type RoundResult,
+playerIdStore, // ADDED: Import playerIdStore
 } from '$lib/stores/game';
 
 export interface WebSocketMessage {
@@ -190,12 +191,21 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			}
 			// Setting gameState here is redundant, rely on backend gameStateUpdate message
 			// gameStateStore.set('WaitingForPlayers');
+			playerIdStore.set(message.payload.playerId ?? null); // Store the player ID
 			break;
 		case 'usernameFailure':
 			// UI should handle showing this error based on the store value
 			connectionError.set(message.payload.message || 'Username is already taken.');
 			// Keep state as NeedsUsername for user to retry
 			gameStateStore.set('NeedsUsername');
+			break;
+		case 'betSuccess': // ADDED: Handle bet success
+			if (typeof message.payload.dannyBucks === 'number') {
+				dannyBucksStore.set(message.payload.dannyBucks);
+				console.log(`Bet success. Updated DB store to: ${message.payload.dannyBucks}`); // Added logging
+			} else {
+				console.warn('Received betSuccess message without valid dannyBucks payload.');
+			}
 			break;
 		case 'playerListUpdate':
 			// Assuming payload is { players: [{ username: string }, ...] }
@@ -259,21 +269,40 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			}
 			break;
 		case 'roundResult':
-			// Assuming payload matches RoundResult structure + nextState + updated balance
-			lastResultStore.set({
-				outcome: message.payload.outcome,
-				amount: message.payload.amount,
-				// Include hands if backend sends them
-			} as RoundResult);
-			// Update balance directly from result message
-			if (typeof message.payload.dannyBucks === 'number') {
-				dannyBucksStore.set(message.payload.dannyBucks);
+			// Assuming payload contains { results: [{ playerId, username, outcome, betAmount, winnings, newBalance, ... }], ... }
+			const resultsArray = message.payload.results as any[]; // Cast for easier access
+			const currentPlayerId = get(playerIdStore); // Get the current player's ID
+
+			if (currentPlayerId && Array.isArray(resultsArray)) {
+				const playerResult = resultsArray.find(result => result.playerId === currentPlayerId);
+				if (playerResult) {
+					// Update Balance
+					if (typeof playerResult.newBalance === 'number') {
+						dannyBucksStore.set(playerResult.newBalance);
+						console.log(`Round result processed. Updated DB store to: ${playerResult.newBalance}`); // Added logging
+					} else {
+						console.warn('newBalance missing or invalid in playerResult for roundResult message.');
+					}
+
+					// Update lastResultStore (use winnings for amount display)
+					lastResultStore.set({
+						outcome: playerResult.outcome,
+						amount: playerResult.winnings ?? 0, // Use winnings, default to 0 if missing
+					} as RoundResult);
+
+				} else {
+					console.warn('Could not find result for current player in roundResult message.');
+					// Clear last result if not found for this player? Or leave it? Let's clear it.
+					lastResultStore.set(null);
+				}
 			} else {
-				// Fallback: update based on amount (less reliable if balance updates separately)
-				dannyBucksStore.update(balance => balance + (message.payload.amount || 0));
+				console.error('Could not get current player ID or results array missing/invalid in roundResult message.');
+				// Clear last result on error
+				lastResultStore.set(null);
 			}
-			// Set next game state
-			gameStateStore.set(message.payload.nextState || 'Betting'); // Default to Betting
+
+			// Let gameStateUpdate messages handle state transitions, as the backend sends 'RoundOver' after results.
+			// gameStateStore.set(message.payload.nextState || 'RoundOver');
 			break;
 		case 'balanceUpdate': // Specific message just for balance changes
 			if (typeof message.payload.dannyBucks === 'number') {

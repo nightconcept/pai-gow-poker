@@ -234,14 +234,14 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 ## Enhancements (PRE-RELEASE)
 
 These are enhancments that will be done before milestone M5.
-- [ ] Issue 1. Center graphics vertically and horizontally. The ideal playing size should be half the width of 1920x1080 so that players can play half screen. (Frontend)
+- [x] Issue 1. Center graphics vertically and horizontally. The ideal playing size should be half the width of 1920x1080 so that players can play half screen. (Frontend)
 - [x] Issue 2. Create a new Card component on the Frontend that will be the component that can be an image with a 1px CSS border applied OR a replica of a playing card with colored suit emojis. (Done: 2025-04-16)
 - [ ] Issue 3. Add a system/chat box that will display system messages such as the current phase for the player.
 - [ ] Issue 4. Add waits between states.
 - [ ] Issue 5. Make the the areas look more like a table.
 - [x] Issue 6. Componentize the Dealer area, Player area, Other Players Area, and top bar which includes: welcome message, game state, and dannyBucks. (Done: 2025-04-16)
 - [x] Issue 7. Refactor username selection to it's own component from +page.svelte.
-- [ ] Issue 8. Fix DB amount.
+- [x] Issue 8. Fix DB amount not updating properly at the frontend after a bet is made or after a round completes.. Start at backend and make sure commands are supported to add and remove amounts of DB. Then check at front end to make sure stores are being updated. Then check the UI. (Done: 2025-04-17)
 - [ ] Issue 9. Add a dark mode toggle component that uses Tailwind v4's dark mode features. Place the toggle right next to the Pai Gow Poker title on +page.svelte.
 
 ## Future Enhancements (Post-MVP)
