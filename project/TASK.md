@@ -243,6 +243,7 @@ These are enhancments that will be done before milestone M5.
 - [x] Issue 7. Refactor username selection to it's own component from +page.svelte.
 - [x] Issue 8. Fix DB amount not updating properly at the frontend after a bet is made or after a round completes.. Start at backend and make sure commands are supported to add and remove amounts of DB. Then check at front end to make sure stores are being updated. Then check the UI. (Done: 2025-04-17)
 - [ ] Issue 9. Add a dark mode toggle component that uses Tailwind v4's dark mode features. Place the toggle right next to the Pai Gow Poker title on +page.svelte.
+- [ ] Issue 10. Cleanup buttons that are statically present, but enabled/disabled depending on game state.
 
 ## Future Enhancements (Post-MVP)
 
