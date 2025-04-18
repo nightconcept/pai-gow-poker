@@ -189,7 +189,7 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
 
 *(Can be done incrementally)*
 
-21. **[ ] Infrastructure: Create Backend Dockerfile**
+21. **[x] Infrastructure: Create Backend Dockerfile**
     * Write a `Dockerfile` for the Node.js backend application.
     * Include steps to copy `package.json`, install dependencies, copy source code, expose the WebSocket port, and define the `CMD` or `ENTRYPOINT` to run the server.
     * Build the Docker image locally (`docker build`).
@@ -204,12 +204,12 @@ These tasks focus on delivering the core Face-Up Pai Gow Poker experience.
     * Run the tunnel (`cloudflared tunnel run <tunnel-name>`).
     * **[ ] Verify:** Tunnel runs successfully. Can access a simple test service (or the preliminary websocket server) running on the specified local port via the public Cloudflare hostname. Ensure WebSocket connections (WSS) work through the tunnel.
 
-23. **[ ] Infrastructure: Set up Vercel Project for Frontend**
+23. **[x] Infrastructure: Set up Vercel Project for Frontend**
     * Create a new project on Vercel.
     * Connect it to the GitHub repository containing the SvelteKit frontend code.
     * Configure build settings (usually auto-detected for SvelteKit/Vite).
     * Set environment variables if needed (e.g., the backend WebSocket URL provided by Cloudflare Tunnel).
-    * **[ ] Verify:** Vercel project is created and linked. Initial deployment builds and deploys successfully.
+    * **[x] Verify:** Vercel project is created and linked. Initial deployment builds and deploys successfully.
 
 24. **[ ] Infrastructure: Perform Initial Manual Deployment**
     * Build the backend Docker image locally.
