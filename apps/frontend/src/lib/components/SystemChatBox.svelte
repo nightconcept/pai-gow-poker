@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { systemMessagesStore, type SystemMessage, type GameState } from '$lib/stores/game';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { writable, get } from 'svelte/store';
 
 	// --- Constants ---
@@ -20,18 +20,59 @@
 	};
 
 	// --- Local State ---
-	let chatBoxElement: HTMLDivElement;
+	let chatBoxElement: HTMLDivElement | null = null;
+	let isUserScrolledUp = false; // Track if user has scrolled away from the bottom
+	let showScrollButton = false; // Control visibility of the "Scroll to Newest" button
+	const scrollThreshold = 50; // Pixels from bottom to be considered "at bottom"
 
-	// --- Lifecycle & Effects ---
-	// Scroll to bottom when new messages arrive
-	$: if (chatBoxElement && $systemMessagesStore.length) {
-		// Use timeout to ensure DOM is updated before scrolling
-		setTimeout(() => {
-			chatBoxElement.scrollTop = chatBoxElement.scrollHeight;
-		}, 0);
+	// --- Functions ---
+
+	/** Checks if the chatbox is scrolled near the bottom */
+	function isNearBottom(): boolean {
+		if (!chatBoxElement) return true; // Assume at bottom if element not ready
+		return (
+			chatBoxElement.scrollHeight - chatBoxElement.scrollTop - chatBoxElement.clientHeight <
+			scrollThreshold
+		);
 	}
 
-	// Helper to format timestamp (optional)
+	/** Scrolls the chatbox to the absolute bottom */
+	async function scrollToBottom(force: boolean = false) {
+		if (chatBoxElement && (force || !isUserScrolledUp)) {
+			await tick(); // Wait for DOM update
+			chatBoxElement.scrollTop = chatBoxElement.scrollHeight;
+			showScrollButton = false; // Hide button after scrolling
+			isUserScrolledUp = false; // User is now at the bottom
+		}
+	}
+
+	/** Handles manual scrolling by the user */
+	function handleScroll() {
+		if (!chatBoxElement) return;
+
+		const nearBottom = isNearBottom();
+		isUserScrolledUp = !nearBottom;
+
+		// If user scrolls back down manually, hide the button
+		if (nearBottom && showScrollButton) {
+			showScrollButton = false;
+		}
+	}
+
+	// --- Lifecycle & Effects ---
+
+	// React to new messages
+	$: if ($systemMessagesStore.length && chatBoxElement) {
+		if (isUserScrolledUp) {
+			// User is scrolled up, show the button instead of scrolling
+			showScrollButton = true;
+		} else {
+			// User is near the bottom, scroll automatically
+			scrollToBottom();
+		}
+	}
+
+	// Helper to format timestamp
 	function formatTimestamp(timestamp: number): string {
 		return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit'});
 	}
@@ -44,16 +85,28 @@
 	<!-- Message Display Area -->
 	<div
 		bind:this={chatBoxElement}
-		class="h-40 overflow-y-auto border rounded p-2 bg-white dark:bg-gray-800 space-y-1 text-sm mb-2"
+		class="relative h-40 overflow-y-auto border rounded p-2 bg-white dark:bg-gray-800 space-y-1 text-sm mb-2"
+		on:scroll={handleScroll}
 	>
 		{#each $systemMessagesStore as message (message.timestamp)}
-			<div class="text-gray-700 dark:text-gray-300">
+			<div class="text-gray-700 dark:text-gray-300 break-words">
 				<span class="text-gray-500 dark:text-gray-400 mr-1">[{formatTimestamp(message.timestamp)}]</span>
 				{message.text}
 			</div>
 		{:else}
 			<p class="text-gray-400 italic">No system messages yet.</p>
 		{/each}
+
+		<!-- "Scroll to Newest" Button -->
+		{#if showScrollButton}
+			<button
+				on:click={() => scrollToBottom(true)}
+				class="absolute bottom-2 right-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold py-1 px-2 rounded-full shadow transition-opacity duration-200"
+				aria-label="Scroll to newest messages"
+			>
+				↓ New Messages
+			</button>
+		{/if}
 	</div>
 
 	<!-- Commented-out Input Area (for future chat feature) -->
