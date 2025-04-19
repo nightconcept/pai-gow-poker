@@ -38,6 +38,45 @@ function broadcast(message: WebSocketMessage, excludePlayerId?: string) {
 
 // --- End Utility Functions ---
 
+/**
+ * Sends the complete current game state to a specific client or broadcasts it.
+ * @param {PlayerWebSocket} [targetWs] - The specific client to send to. If undefined, broadcasts to all.
+ * @param {string} [messageText] - An optional text message to include in the payload.
+ */
+function sendFullGameState(targetWs?: PlayerWebSocket, messageText?: string) {
+	const payload = {
+		gameState: gameTable.gameState,
+		players: Array.from(gameTable.players.values())
+			.filter(p => p.username) // Only include players with usernames
+			.map(p => ({
+				id: p.id,
+				username: p.username,
+				isHost: p.isHost,
+				dannyBucks: p.dannyBucks // Include current balance
+			})),
+		dealerHand: gameTable.dealerHand.dealtCards ? { // Only send dealer hand if it exists
+			revealed: gameTable.dealerHand.dealtCards,
+			highHand: gameTable.dealerHand.highHand,
+			lowHand: gameTable.dealerHand.lowHand,
+			isAceHighPaiGow: gameTable.dealerHand.isAceHighPaiGow,
+		} : null,
+		message: messageText || undefined // Include optional message
+	};
+
+	const message: WebSocketMessage = { type: 'gameStateUpdate', payload };
+
+	if (targetWs) {
+		console.log(`Sending full game state to ${targetWs.playerId}`);
+		if (targetWs.readyState === WebSocket.OPEN) {
+			targetWs.send(JSON.stringify(message));
+		}
+	} else {
+		console.log('Broadcasting full game state update.');
+		broadcast(message); // Use existing broadcast function
+	}
+}
+
+
 const PORT = 8080; // Define the port for the WebSocket server
 
 // Create a new WebSocket server instance
@@ -268,22 +307,22 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 
 		console.log(`Player ${playerId} set username to: ${trimmedUsername}`);
 
-		// Send success response to the client
+		// 1. Send the specific 'usernameSuccess' message first
 		ws.send(
 			JSON.stringify({
 				type: 'usernameSuccess',
 				payload: {
 					username: trimmedUsername,
 					dannyBucks: player.dannyBucks,
-					// Include current list of other players
-					players: Array.from(gameTable.players.values())
-						.filter((p) => p.id !== playerId && p.username) // Only send players who have set a username
-						.map((p) => ({ username: p.username, id: p.id, isHost: p.isHost })), // Include isHost
-				},
-			}),
+					playerId: player.id // Send player ID back
+				}
+			})
 		);
 
-		// Broadcast playerJoined to other clients
+		// 2. Send the full current game state to the joining player
+		sendFullGameState(ws); // No extra message needed here, usernameSuccess confirms it
+
+		// 3. Broadcast playerJoined to other clients
 		broadcast(
 			{
 				type: 'playerJoined',
@@ -292,18 +331,10 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 			playerId, // Exclude the player who just joined
 		);
 
-		// If this is the first player to set a username, transition state to Betting
-		const playersWithUsernames = Array.from(gameTable.players.values()).filter(p => p.username);
-		if (playersWithUsernames.length === 1 && gameTable.gameState === 'WaitingForPlayers') {
-			gameTable.gameState = 'Betting';
-			const newState = gameTable.gameState; // Capture state for logging
-			console.log(`First player joined, setting game state to: ${newState}. Broadcasting update...`);
-			// Broadcast the new state to everyone (including the new player)
-			broadcast({
-				type: 'gameStateUpdate',
-				payload: { gameState: gameTable.gameState, message: 'Waiting for bets.' }
-			});
-		}
+		// --- State transition logic removed ---
+		// State should only change based on game actions (betting, starting game),
+		// not just because a player joined. The joining player receives the current state.
+
 	} else {
 		// Send failure response
 		ws.send(
@@ -435,22 +466,13 @@ function handleStartGame(playerId: string, message: WebSocketMessage, ws: Player
 			// Deal cards etc.
 			gameTable.startNewRound(); // This will shuffle, deal, set dealer hand, and change state further
 
-			// Broadcast the updated game state, including the revealed dealer hand details
-			broadcast({
-				type: 'gameStateUpdate',
-				payload: {
-					gameState: gameTable.gameState, // Will be 'AceHighPush' or 'PlayerAction'
-					dealerHand: { // Send all dealer info for Face-Up variant
-						revealed: gameTable.dealerHand.dealtCards, // <-- Change field name to 'revealed'
-						highHand: gameTable.dealerHand.highHand,
-						lowHand: gameTable.dealerHand.lowHand,
-						isAceHighPaiGow: gameTable.dealerHand.isAceHighPaiGow,
-					},
-					message: gameTable.dealerHand.isAceHighPaiGow
-						? 'Dealer has Ace-High Pai Gow! Round is a push.'
-						: 'Dealer hand set. Please set your hand.',
-				},
-			});
+			// Broadcast the full updated game state using the helper function
+			sendFullGameState(
+				undefined, // Broadcast to all
+				gameTable.dealerHand.isAceHighPaiGow
+					? 'Dealer has Ace-High Pai Gow! Round is a push.'
+					: 'Dealer hand set. Please set your hand.'
+			);
 			// Individual player hands were sent within startNewRound
 		} else {
 			// This case should be less likely now if we only start from Betting state
@@ -609,42 +631,31 @@ function handleReadyForNextRound(playerId: string, message: WebSocketMessage, ws
 	if (allActivePlayersReady && activePlayers.length > 0) {
 		console.log("All active players are ready. Starting next round...");
 
-		// --- Reset for Next Round (Move reset logic here from showdown) ---
-		console.log("Resetting player states for betting...");
+		// --- Reset Player and Dealer State for Next Round ---
+		console.log("Resetting player and dealer states for betting...");
 		gameTable.players.forEach(p => {
-			// Reset round-specific states for ALL players, even inactive ones
+			// Reset round-specific states for ALL players
 			p.currentHand = null;
 			p.setHighHand = null;
 			p.setLowHand = null;
 			p.currentBet = null;
 			p.hasSetHand = false;
-			p.isReadyForNextRound = false; // Reset readiness for the *next* round end
-
-			// Check if player ran out of money (inform again if needed, though already done in showdown)
-			if (p.dannyBucks <= 0 && p.ws.readyState === p.ws.OPEN) {
-				// Maybe send a different message like 'waitingForFunds' or just rely on UI disabling bet
-				// console.log(`Player ${p.id} (${p.username}) still has 0 DB.`);
-			}
+			p.isReadyForNextRound = false; // Reset readiness
 		});
-
-		// Reset dealer state
-		gameTable.dealerHand = {
+		gameTable.dealerHand = { // Reset dealer state
 			dealtCards: null,
 			highHand: null,
 			lowHand: null,
 			isAceHighPaiGow: false,
 		};
+		// --- End Reset Logic ---
 
 		// Transition back to Betting state
 		gameTable.gameState = 'Betting';
-		broadcast({
-			type: 'gameStateUpdate',
-			payload: {
-				gameState: gameTable.gameState,
-				message: 'Place your bets for the next round!'
-			}
-		});
 		console.log(`--- New Round Ready. Game state transitioned to: ${gameTable.gameState} ---`);
+
+		// Broadcast the full game state update using the helper function
+		sendFullGameState(undefined, 'Place your bets for the next round!');
 
 	} else {
 		console.log(`Waiting for other players to be ready. Total active: ${activePlayers.length}, Ready: ${activePlayers.filter(p => p.isReadyForNextRound).length}`);
@@ -793,25 +804,15 @@ function handleShowdown() {
 	});
 	console.log("Round results broadcasted.");
 
-	// --- Reset for Next Round ---
-	console.log("Resetting table state for next round...");
-	// Reset player states
-	gameTable.players.forEach(player => {
-		player.currentHand = null;
-		player.setHighHand = null;
-		player.setLowHand = null;
-		player.currentBet = null;
-		player.hasSetHand = false;
-		player.isReadyForNextRound = false; // Reset readiness here too, although handleReadyForNextRound will do it again before betting
-		// Check if player ran out of money
-		if (player.dannyBucks <= 0) {
-			console.log(`Player ${player.id} (${player.username}) has run out of DannyBucks.`);
-			// Optionally send a specific message or mark player as inactive
-			if (player.ws.readyState === player.ws.OPEN) {
-				player.ws.send(JSON.stringify({ type: 'outOfFunds', payload: { message: 'You have run out of DannyBucks!' } }));
-			}
-		}
-	});
+	// --- Reset logic moved to handleReadyForNextRound ---
+
+	// Transition state to indicate round is over, waiting for players to ready up
+	gameTable.gameState = 'RoundOver';
+	// Note: We don't broadcast the full state here, as the 'roundResult' message
+	// already contains the necessary outcome details. The frontend should transition
+	// based on receiving 'roundResult' and then wait for the 'Betting' state update
+	// triggered by handleReadyForNextRound.
+	console.log(`Showdown complete. Game state transitioned to: ${gameTable.gameState}`);
 
 	// Reset dealer state
 	gameTable.dealerHand = {

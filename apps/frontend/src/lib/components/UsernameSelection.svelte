@@ -94,7 +94,8 @@
 		{#if currentConnectionStatus === 'open' && currentGameState === 'NeedsUsername'}
 			Connected! Please enter a username.
 		{:else if currentConnectionStatus === 'open'}
-			Connected (State: {currentGameState}) <!-- Should ideally not show form if not NeedsUsername -->
+			<!-- Avoid showing intermediate game states here. Parent will hide this component soon. -->
+			Connected. Processing...
 		{:else if currentConnectionStatus === 'connecting'}
 			Connecting to server...
 		{:else if currentConnectionStatus === 'closed'}

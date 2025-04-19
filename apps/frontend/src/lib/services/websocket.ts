@@ -189,8 +189,21 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			if (Array.isArray(message.payload.players)) {
 				playersStore.set(message.payload.players as PlayerInfo[]);
 			}
-			// Setting gameState here is redundant, rely on backend gameStateUpdate message
-			// gameStateStore.set('WaitingForPlayers');
+			// Process initial game state and dealer hand if provided (now sent by backend)
+			if (message.payload.gameState) {
+				gameStateStore.set(message.payload.gameState as GameState);
+			}
+			if (message.payload.dealerHand) {
+				const dealerData = message.payload.dealerHand;
+				if (dealerData.revealed && dealerData.highHand && dealerData.lowHand) {
+					dealerHandStore.set({
+						revealed: dealerData.revealed as Card[],
+						highHand: dealerData.highHand as Card[],
+						lowHand: dealerData.lowHand as Card[],
+						isAceHighPaiGow: dealerData.isAceHighPaiGow as boolean,
+					});
+				}
+			}
 			playerIdStore.set(message.payload.playerId ?? null); // Store the player ID
 			break;
 		case 'usernameFailure':
@@ -234,17 +247,22 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 					console.warn('Received gameStateUpdate with incomplete dealerHand data:', dealerData);
 				}
 			}
+			// Update player list if included in the payload
+			if (Array.isArray(message.payload.players)) {
+				playersStore.set(message.payload.players as PlayerInfo[]);
+			}
 
 			// Reset stores based on state transitions
 			if (newState === 'Betting') {
 				lastResultStore.set(null);
 				myHandStore.set(null);
-				// Don't clear dealerHandStore here, might be needed briefly for display
-				// dealerHandStore.set(null);
+				// Clear dealer hand when starting a new betting round
+				dealerHandStore.set(null);
 			}
-			// Update balance if included with state update
+			// Update balance if included with state update (redundant if players list is sent, but harmless)
 			if (typeof message.payload.dannyBucks === 'number') {
-				dannyBucksStore.set(message.payload.dannyBucks);
+				// Maybe only update if players list *isn't* present? For now, allow override.
+				// dannyBucksStore.set(message.payload.dannyBucks);
 			}
 			break;
 		case 'dealHand':
