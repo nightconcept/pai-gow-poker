@@ -17,8 +17,43 @@ import {
 	type DealerHand,
 	type GameState,
 	type RoundResult,
-playerIdStore, // ADDED: Import playerIdStore
+	playerIdStore, // ADDED: Import playerIdStore
+	systemMessagesStore, // ADDED: Import system message store
+	type SystemMessage, // ADDED: Import system message type
+	// PlayerInfo is already imported earlier, removed duplicate
 } from '$lib/stores/game';
+
+// --- Constants for System Messages (Moved from +page.svelte) ---
+const phaseMessages: Partial<Record<GameState, string>> = {
+	WaitingForPlayers: 'Waiting for players to join or the host to start...',
+	Betting: 'Betting Phase: Place your bets!',
+	Dealing: 'Dealing cards...',
+	PlayerAction: 'Player Action: Set your hand!',
+	Showdown: 'Showdown: Revealing hands and determining results...',
+	RoundOver: 'Round Over. Click "Start Next Round" below.',
+	AceHighPush: 'Dealer has Ace-High Pai Gow - Push!',
+	NeedsUsername: 'Please enter a username to join.',
+	Connecting: 'Connecting to server...',
+	Disconnected: 'Disconnected from server.',
+	Error: 'An error occurred.'
+	// Add others as needed
+};
+
+// --- Local State for Host Tracking ---
+// We need to track the host *within* the service to avoid duplicate messages
+let currentReportedHost: string | null = null;
+
+
+// --- Helper Function ---
+// Moved from +page.svelte
+function addSystemMessage(text: string) {
+	const newMessage: SystemMessage = {
+		timestamp: Date.now(),
+		text: text
+	};
+	systemMessagesStore.update((messages) => [...messages, newMessage]);
+}
+
 
 export interface WebSocketMessage {
 	type: string;
@@ -180,9 +215,26 @@ export function connectWebSocket(url?: string): void {
  * @param {WebSocketMessage} message - The parsed message from the server.
  */
 function handleWebSocketMessage(message: WebSocketMessage): void {
-	console.log(`Handling message type: ${message.type}`, message.payload);
-	switch (message.type) {
-		case 'usernameSuccess':
+ console.log(`Handling message type: ${message.type}`, message.payload);
+
+ // --- Helper to check for host and add message if changed ---
+ const checkAndAnnounceHost = (players: PlayerInfo[]) => {
+ 	const newHost = players.find(p => p.isHost);
+ 	const newHostUsername = newHost ? newHost.username : null;
+ 	if (newHostUsername && newHostUsername !== currentReportedHost) {
+ 		addSystemMessage(`${newHostUsername} is now the host.`);
+ 		currentReportedHost = newHostUsername;
+ 	} else if (!newHostUsername && currentReportedHost) {
+ 		// Host is gone
+ 		addSystemMessage(`Host (${currentReportedHost}) is no longer hosting.`); // Optional
+ 		currentReportedHost = null;
+ 	}
+ };
+ // --- End Helper ---
+
+
+ switch (message.type) {
+ 	case 'usernameSuccess':
 			usernameStore.set(message.payload.username);
 			dannyBucksStore.set(message.payload.dannyBucks ?? 0); // Expect balance with success
 			// Process initial player list if provided
@@ -221,19 +273,27 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			}
 			break;
 		case 'playerListUpdate':
-			// Assuming payload is { players: [{ username: string }, ...] }
-			playersStore.set(message.payload.players as PlayerInfo[]);
+			// Assuming payload is { players: [{ username: string, id: string, isHost: boolean }, ...] }
+			const playerListPayload = message.payload.players as PlayerInfo[];
+			playersStore.set(playerListPayload);
+			checkAndAnnounceHost(playerListPayload); // Check host on list update
 			break;
 		case 'gameStateUpdate':
 			// Assuming payload is { state: GameState, dealerHand?: DealerHand, dannyBucks?: number, ... }
 			const receivedPayload = message.payload; // Store payload first
 			console.log('Received gameStateUpdate payload:', receivedPayload); // Log raw payload
-			const newState = receivedPayload.gameState as GameState; // Assign state - FIX TYPO: gameState not state
-			console.log('Extracted newState:', newState); // Log extracted state *before* setting store
-			gameStateStore.set(newState); // Set the store
+			const newState = receivedPayload.gameState as GameState;
+			console.log('Extracted newState:', newState);
+			gameStateStore.set(newState);
+
+			// Add phase message
+			const phaseMessage = phaseMessages[newState];
+			if (phaseMessage) {
+				addSystemMessage(`Phase: ${phaseMessage}`);
+			}
 
 			// Update dealer hand if included in the payload
-			if (message.payload.dealerHand) {
+			if (receivedPayload.dealerHand) {
 				// Ensure the structure matches DealerHand type (especially 'revealed')
 				const dealerData = message.payload.dealerHand;
 				if (dealerData.revealed && dealerData.highHand && dealerData.lowHand) {
@@ -247,9 +307,11 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 					console.warn('Received gameStateUpdate with incomplete dealerHand data:', dealerData);
 				}
 			}
-			// Update player list if included in the payload
-			if (Array.isArray(message.payload.players)) {
-				playersStore.set(message.payload.players as PlayerInfo[]);
+			// Update player list if included in the payload and check host
+			if (Array.isArray(receivedPayload.players)) {
+				const updatedPlayers = receivedPayload.players as PlayerInfo[];
+				playersStore.set(updatedPlayers);
+				checkAndAnnounceHost(updatedPlayers); // Check host on state update containing players
 			}
 
 			// Reset stores based on state transitions
@@ -333,14 +395,20 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			break;
 		// Add cases for other messages like 'playerJoined', 'playerLeft'
 		case 'playerJoined':
-			console.log(`Player joined: ${message.payload.username}`);
-			// Requesting full list is more robust than trying to patch locally
-			sendWebSocketMessage({ type: 'requestPlayerList', payload: {} });
+			const joinedUsername = message.payload.username;
+			console.log(`Player joined: ${joinedUsername}`);
+			if (joinedUsername) {
+				addSystemMessage(`${joinedUsername} has joined.`); // Add system message
+			}
+			// No longer need to request list, backend broadcasts it
 			break;
 		case 'playerLeft':
-			console.log(`Player left: ${message.payload.username}`);
-			// Requesting full list is more robust
-			sendWebSocketMessage({ type: 'requestPlayerList', payload: {} });
+			const leftUsername = message.payload.username;
+			console.log(`Player left: ${leftUsername}`);
+			if (leftUsername) {
+				addSystemMessage(`${leftUsername} has left.`); // Add system message
+			}
+			// No longer need to request list, backend broadcasts it
 			break;
 		default:
 			console.warn(`Unhandled WebSocket message type: ${message.type}`);

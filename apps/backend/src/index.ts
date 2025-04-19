@@ -215,23 +215,21 @@ wss.on('connection', (ws: PlayerWebSocket) => {
 				);
 			}
 
-			// If the host left OR if the table is now empty, broadcast the updated player list
-			// which will implicitly contain the new host information (or lack thereof).
-			if (wasHost || gameTable.players.size === 0) {
-				console.log('Host left or table empty, broadcasting updated player list.');
-				broadcast({
-					type: 'playerListUpdate',
-					payload: {
-						players: Array.from(gameTable.players.values())
-							.filter(p => p.username) // Only send players with usernames
-							.map(p => ({
-								id: p.id,
-								username: p.username,
-								isHost: p.isHost // Include host status
-							}))
-					}
-				});
-			}
+			// Always broadcast the updated player list after someone leaves
+			console.log('Player left, broadcasting updated player list.');
+			broadcast({
+				type: 'playerListUpdate',
+				payload: {
+					players: Array.from(gameTable.players.values())
+						.filter(p => p.username) // Only send players with usernames
+						.map(p => ({
+							id: p.id,
+							username: p.username,
+							isHost: p.isHost // Include host status
+						}))
+				}
+			});
+			// Removed the conditional check (if wasHost...)
 		} else {
 			console.log('Client disconnected (unknown ID)');
 		}
@@ -322,7 +320,7 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 		// 2. Send the full current game state to the joining player
 		sendFullGameState(ws); // No extra message needed here, usernameSuccess confirms it
 
-		// 3. Broadcast playerJoined to other clients
+		// 3. Broadcast playerJoined to other clients (still useful for specific join notification)
 		broadcast(
 			{
 				type: 'playerJoined',
@@ -330,6 +328,22 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 			},
 			playerId, // Exclude the player who just joined
 		);
+
+		// 4. Broadcast the updated player list to ALL clients
+		console.log('Broadcasting updated player list after join.');
+		broadcast({
+			type: 'playerListUpdate',
+			payload: {
+				players: Array.from(gameTable.players.values())
+					.filter(p => p.username) // Only send players with usernames
+					.map(p => ({
+						id: p.id,
+						username: p.username,
+						isHost: p.isHost // Include host status
+					}))
+			}
+		});
+
 
 		// --- State transition logic removed ---
 		// State should only change based on game actions (betting, starting game),
