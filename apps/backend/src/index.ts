@@ -811,7 +811,8 @@ function handleShowdown() {
 					username: player.username,
 					outcome: outcome,
 					betAmount: player.currentBet,
-					winnings: winnings,
+					winnings: winnings, // Note: This is the amount won/lost *excluding* the original bet return on win/push
+					dbChange: outcome === 'Push' ? 0 : winnings, // Actual change in DB for the round
 					newBalance: player.dannyBucks,
 					playerHighHand: player.setHighHand,
 					playerLowHand: player.setLowHand,
@@ -826,6 +827,7 @@ function handleShowdown() {
 					outcome: 'Error',
 					betAmount: player.currentBet,
 					winnings: 0,
+					dbChange: 0, // No change on error
 					newBalance: player.dannyBucks,
 					playerHighHand: player.setHighHand,
 					playerLowHand: player.setLowHand,

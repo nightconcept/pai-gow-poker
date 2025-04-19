@@ -34,11 +34,22 @@ export type GameState =
 	| 'Error'
 	| 'AceHighPush';
 
-export type RoundResult = {
-	outcome: string; // 'Win', 'Loss', 'Push', 'Error'
-	amount: number;
-	// Optionally add hand details if needed for display
+// Represents the result for *this specific player* from the roundResult message
+export type PlayerRoundResult = {
+	playerId: string;
+	username: string;
+	outcome: 'Win' | 'Loss' | 'Push' | 'Error' | 'Foul'; // More specific outcomes
+	betAmount: number | null;
+	winnings: number; // Amount won/lost excluding original bet
+	dbChange: number; // The actual change in DB (+/- or 0)
+	newBalance: number;
+	playerHighHand?: Card[] | null; // Optional for display
+	playerLowHand?: Card[] | null; // Optional for display
+	error?: string;
 };
+
+// Store for the *current player's* result from the last round
+export const lastPlayerResultStore = writable<PlayerRoundResult | null>(null);
 
 export type SystemMessage = {
 	timestamp: number;
@@ -54,6 +65,6 @@ export const dannyBucksStore = writable<number>(0);
 export const myHandStore = writable<Card[] | null>(null);
 export const dealerHandStore = writable<DealerHand | null>(null);
 export const gameStateStore = writable<GameState>('Disconnected'); // Initial state
-export const lastResultStore = writable<RoundResult | null>(null);
+// Removed lastResultStore, replaced by lastPlayerResultStore above
 export const playerIdStore = writable<string | null>(null); // ADDED: Player ID Store
 export const systemMessagesStore = writable<SystemMessage[]>([]); // ADDED: System messages store

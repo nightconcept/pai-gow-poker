@@ -5,13 +5,13 @@
 		usernameStore,
 		gameStateStore,
 		myHandStore,
-		lastResultStore,
+		lastPlayerResultStore, // UPDATED: Use new store
 		dannyBucksStore,
 		dealerHandStore, // Needed for isAceHighPaiGow check
 		playersStore, // ADDED: For host check
 		playerIdStore, // ADDED: For host check
 		type Card,
-		type RoundResult
+		type PlayerRoundResult // UPDATED: Use new type
 	} from '$lib/stores/game';
 	import { sendWebSocketMessage } from '$lib/services/websocket';
 
@@ -206,23 +206,29 @@
 	</div>
 	<!-- === END Hand Setting Area === -->
 
-	<!-- === Round Result Area (Task 20) === -->
+	<!-- === Round Result Area === -->
 	<div class="mt-4 pt-4 border-t">
-		{#if $lastResultStore}
+		{#if $lastPlayerResultStore}
 			<h4 class="font-medium mb-2">Round Result</h4>
 			<div
 				class="p-3 rounded text-center font-bold text-lg
-				{$lastResultStore.outcome === 'Win' ? 'bg-green-200 text-green-800' : ''}
-				{$lastResultStore.outcome === 'Loss' || $lastResultStore.outcome === 'Foul' ? 'bg-red-200 text-red-800' : ''}
-				{$lastResultStore.outcome === 'Push' ? 'bg-gray-200 text-gray-800' : ''}"
+				{$lastPlayerResultStore.outcome === 'Win' ? 'bg-green-200 text-green-800' : ''}
+				{$lastPlayerResultStore.outcome === 'Loss' || $lastPlayerResultStore.outcome === 'Foul' ? 'bg-red-200 text-red-800' : ''}
+				{$lastPlayerResultStore.outcome === 'Push' ? 'bg-gray-200 text-gray-800' : ''}"
 			>
-				{$lastResultStore.outcome.toUpperCase()}
-				{#if $lastResultStore.outcome === 'Win' || $lastResultStore.outcome === 'Loss'}
-					({$lastResultStore.amount > 0 ? '+' : ''}{$lastResultStore.amount} DB)
+				{$lastPlayerResultStore.outcome.toUpperCase()}
+				<!-- Display DB Change -->
+				{#if $lastPlayerResultStore.outcome !== 'Push' && $lastPlayerResultStore.outcome !== 'Error'}
+					<span class="ml-2 font-semibold
+						{$lastPlayerResultStore.dbChange > 0 ? 'text-green-600' : ''}
+						{$lastPlayerResultStore.dbChange < 0 ? 'text-red-600' : ''}"
+					>
+						({$lastPlayerResultStore.dbChange > 0 ? '+' : ''}{$lastPlayerResultStore.dbChange} DB)
+					</span>
 				{/if}
 			</div>
 			<p class="text-center mt-1 text-sm">
-				New Balance: 💰 {$dannyBucksStore} DB
+				New Balance: 💰 {$dannyBucksStore} DB <!-- Balance is updated via store -->
 			</p>
 			<!-- Optionally show hands here later -->
 

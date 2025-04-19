@@ -11,12 +11,12 @@ import {
 	myHandStore,
 	dealerHandStore,
 	gameStateStore,
-	lastResultStore,
+	lastPlayerResultStore, // UPDATED: Import new store
 	type PlayerInfo,
 	type Card,
 	type DealerHand,
 	type GameState,
-	type RoundResult,
+	type PlayerRoundResult, // UPDATED: Import new type
 	playerIdStore, // ADDED: Import playerIdStore
 	systemMessagesStore, // ADDED: Import system message store
 	type SystemMessage, // ADDED: Import system message type
@@ -81,7 +81,7 @@ connectionStatus.subscribe((status) => {
 		playersStore.set([]);
 		myHandStore.set(null);
 		dealerHandStore.set(null);
-		lastResultStore.set(null);
+		lastPlayerResultStore.set(null); // UPDATED: Use new store
 		dannyBucksStore.set(0);
 		messageQueue = []; // Clear queue on close/error
 		// Ensure socket variable is cleared if status becomes closed/error externally
@@ -316,7 +316,7 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 
 			// Reset stores based on state transitions
 			if (newState === 'Betting') {
-				lastResultStore.set(null);
+				lastPlayerResultStore.set(null); // UPDATED: Use new store
 				myHandStore.set(null);
 				// Clear dealer hand when starting a new betting round
 				dealerHandStore.set(null);
@@ -349,14 +349,14 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 			}
 			break;
 		case 'roundResult':
-			// Assuming payload contains { results: [{ playerId, username, outcome, betAmount, winnings, newBalance, ... }], ... }
-			const resultsArray = message.payload.results as any[]; // Cast for easier access
+			// Assuming payload contains { results: [PlayerRoundResult], ... }
+			const resultsArray = message.payload.results as PlayerRoundResult[]; // Use the correct type
 			const currentPlayerId = get(playerIdStore); // Get the current player's ID
 
 			if (currentPlayerId && Array.isArray(resultsArray)) {
 				const playerResult = resultsArray.find(result => result.playerId === currentPlayerId);
 				if (playerResult) {
-					// Update Balance
+					// Update Balance (already part of playerResult)
 					if (typeof playerResult.newBalance === 'number') {
 						dannyBucksStore.set(playerResult.newBalance);
 						console.log(`Round result processed. Updated DB store to: ${playerResult.newBalance}`); // Added logging
@@ -364,21 +364,19 @@ function handleWebSocketMessage(message: WebSocketMessage): void {
 						console.warn('newBalance missing or invalid in playerResult for roundResult message.');
 					}
 
-					// Update lastResultStore (use winnings for amount display)
-					lastResultStore.set({
-						outcome: playerResult.outcome,
-						amount: playerResult.winnings ?? 0, // Use winnings, default to 0 if missing
-					} as RoundResult);
+					// Update lastPlayerResultStore with the full result object for this player
+					lastPlayerResultStore.set(playerResult);
+					console.log('Updated lastPlayerResultStore:', playerResult);
 
 				} else {
 					console.warn('Could not find result for current player in roundResult message.');
-					// Clear last result if not found for this player? Or leave it? Let's clear it.
-					lastResultStore.set(null);
+					// Clear last result if not found for this player
+					lastPlayerResultStore.set(null);
 				}
 			} else {
 				console.error('Could not get current player ID or results array missing/invalid in roundResult message.');
 				// Clear last result on error
-				lastResultStore.set(null);
+				lastPlayerResultStore.set(null);
 			}
 
 			// Let gameStateUpdate messages handle state transitions, as the backend sends 'RoundOver' after results.
