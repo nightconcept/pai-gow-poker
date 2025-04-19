@@ -277,3 +277,8 @@ These are enhancments that will be done before milestone M5.
 -   *(Example)* Biome setup required specific VS Code settings adjustment.
 -   **[x] TODO (Cleanup):** Remove temporary "Place Bet" and "Start Game" buttons added to `apps/frontend/src/routes/+page.svelte` during Task 17 verification. These should be replaced by proper UI elements in Tasks 18 & subsequent UI tasks. (Completed: 2025-04-15)
 -   **[x] TODO (Backend):** Implement handling for the `readyForNextRound` message sent by the frontend after round results are displayed (including Ace-High Push). This should transition the game state back to `Betting`. (Completed: 2025-04-15)
+---
+
+## Discovered During Work (Completed)
+
+- [x] **Fix `startGame` from `WaitingForPlayers` state:** Modified `handleStartGame` in `apps/backend/src/index.ts` to transition to `Betting` state when `startGame` is received from the host while in `WaitingForPlayers`. (Completed: 2025-04-19)

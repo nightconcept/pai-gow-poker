@@ -8,10 +8,17 @@
 		lastResultStore,
 		dannyBucksStore,
 		dealerHandStore, // Needed for isAceHighPaiGow check
+		playersStore, // ADDED: For host check
+		playerIdStore, // ADDED: For host check
 		type Card,
 		type RoundResult
 	} from '$lib/stores/game';
 	import { sendWebSocketMessage } from '$lib/services/websocket';
+
+	// --- Reactive Computations for Host Status ---
+	$: currentPlayerId = $playerIdStore;
+	$: hostPlayer = $playersStore.find(p => p.isHost);
+	$: isHost = !!(currentPlayerId && hostPlayer && currentPlayerId === hostPlayer.id);
 
 	// --- Local State ---
 	let selectedLowHandIndices = new Set<number>(); // Indices (0-6) of cards selected for low hand
@@ -164,11 +171,11 @@
 	<!-- === END Betting Area === -->
 
 	<div class="mt-4 pt-4 space-x-2">
-		{#if $gameStateStore === 'Betting'}
+		{#if ($gameStateStore === 'Betting' || $gameStateStore === 'WaitingForPlayers') && isHost}
 			<button
 				class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-1 px-3 rounded text-sm"
 				on:click={handleTempStartGame}
-				disabled={$gameStateStore !== 'Betting'}
+				disabled={!isHost}
 			>
 				Start Game
 			</button>

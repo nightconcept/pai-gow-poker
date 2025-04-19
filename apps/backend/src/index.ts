@@ -32,7 +32,10 @@ function broadcast(message: WebSocketMessage, excludePlayerId?: string) {
 			playerWs.playerId !== excludePlayerId
 		) {
 			playerWs.send(messageString);
-		}
+		} else {
+		          // Add logging here to see why a client might be skipped
+		          console.log(`Skipping broadcast to client: State=${playerWs.readyState}, Has PlayerID=${!!playerWs.playerId}, PlayerID=${playerWs.playerId}, Excluded=${excludePlayerId}`);
+		      }
 	});
 }
 
@@ -464,8 +467,34 @@ function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerW
 function handleStartGame(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
 	console.log(`Received startGame request from ${playerId}`);
 
-	// Validate game state: Only allow starting from 'Betting' state now
-	if (gameTable.gameState === 'Betting') {
+	// Validate game state and sender
+	const player = gameTable.getPlayerByConnectionId(playerId);
+	if (!player) {
+		ws.send(JSON.stringify({ type: 'error', payload: { message: 'Error: Player not found.' } }));
+		return;
+	}
+
+	// --- Transition from WaitingForPlayers to Betting ---
+	if (gameTable.gameState === 'WaitingForPlayers') {
+		// Only allow host to start the betting phase
+		if (player.id !== gameTable.hostId) {
+			ws.send(JSON.stringify({ type: 'error', payload: { message: 'Only the host can start the betting phase.' } }));
+			return;
+		}
+		// Ensure there's at least one player (the host)
+		if (gameTable.players.size === 0) {
+			ws.send(JSON.stringify({ type: 'error', payload: { message: 'Cannot start betting with no players.' } }));
+			return;
+		}
+
+		console.log(`Host ${playerId} is starting the betting phase.`);
+		gameTable.gameState = 'Betting';
+		// Reset bets from any previous rounds for all players
+		gameTable.players.forEach(p => p.currentBet = null);
+		broadcast({ type: 'gameStateUpdate', payload: { gameState: gameTable.gameState, message: 'Betting phase started. Please place your bets.' } });
+
+	// --- Transition from Betting to Dealing ---
+	} else if (gameTable.gameState === 'Betting') {
 		// Check if there are players with usernames *and* who have placed a bet
 		const playersReady = Array.from(gameTable.players.values()).filter(
 			p => p.username && p.currentBet !== null && p.currentBet > 0
@@ -489,12 +518,13 @@ function handleStartGame(playerId: string, message: WebSocketMessage, ws: Player
 			);
 			// Individual player hands were sent within startNewRound
 		} else {
-			// This case should be less likely now if we only start from Betting state
-			ws.send(JSON.stringify({ type: 'error', payload: { message: 'No players have placed a bet.' } }));
+			// If in Betting state but no one has bet
+			ws.send(JSON.stringify({ type: 'error', payload: { message: 'Cannot start dealing. No players have placed a bet.' } }));
 		}
+	// --- Invalid State ---
 	} else {
-		// Send error if not in Betting state
-		ws.send(JSON.stringify({ type: 'error', payload: { message: `Game can only be started during the 'Betting' phase. Current state: ${gameTable.gameState}` } }));
+		// Send error if in any other state (Dealing, PlayerAction, Showdown, etc.)
+		ws.send(JSON.stringify({ type: 'error', payload: { message: `Game cannot be started from the current state: ${gameTable.gameState}` } }));
 	}
 }
 
