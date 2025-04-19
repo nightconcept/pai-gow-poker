@@ -157,7 +157,9 @@ wss.on('connection', (ws: PlayerWebSocket) => {
 		if (closingPlayerId) {
 			console.log(`Client disconnected: ${closingPlayerId}`);
 			const removedPlayer = gameTable.getPlayerByConnectionId(closingPlayerId);
-			// Remove the player from the game table
+			const wasHost = removedPlayer?.isHost; // Check if the leaving player was the host
+
+			// Remove the player from the game table (this might reassign host)
 			gameTable.removePlayer(closingPlayerId);
 
 			// Broadcast player left message to remaining clients
@@ -172,6 +174,24 @@ wss.on('connection', (ws: PlayerWebSocket) => {
 					},
 					closingPlayerId, // Don't send to the disconnecting client
 				);
+			}
+
+			// If the host left OR if the table is now empty, broadcast the updated player list
+			// which will implicitly contain the new host information (or lack thereof).
+			if (wasHost || gameTable.players.size === 0) {
+				console.log('Host left or table empty, broadcasting updated player list.');
+				broadcast({
+					type: 'playerListUpdate',
+					payload: {
+						players: Array.from(gameTable.players.values())
+							.filter(p => p.username) // Only send players with usernames
+							.map(p => ({
+								id: p.id,
+								username: p.username,
+								isHost: p.isHost // Include host status
+							}))
+					}
+				});
 			}
 		} else {
 			console.log('Client disconnected (unknown ID)');
@@ -258,7 +278,7 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 					// Include current list of other players
 					players: Array.from(gameTable.players.values())
 						.filter((p) => p.id !== playerId && p.username) // Only send players who have set a username
-						.map((p) => ({ username: p.username, id: p.id })),
+						.map((p) => ({ username: p.username, id: p.id, isHost: p.isHost })), // Include isHost
 				},
 			}),
 		);
@@ -267,7 +287,7 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 		broadcast(
 			{
 				type: 'playerJoined',
-				payload: { username: trimmedUsername, id: playerId },
+				payload: { username: trimmedUsername, id: playerId, isHost: player.isHost }, // Include isHost
 			},
 			playerId, // Exclude the player who just joined
 		);
@@ -305,7 +325,7 @@ function handleRequestPlayerList(playerId: string, ws: PlayerWebSocket) {
 	console.log(`Received requestPlayerList from ${playerId}`);
 	const playersWithUsernames = Array.from(gameTable.players.values())
 		.filter((p) => p.id !== playerId && p.username) // Filter out self AND ensure username is set
-		.map((p) => ({ username: p.username, id: p.id })); // Send username and ID
+		.map((p) => ({ username: p.username, id: p.id, isHost: p.isHost })); // Include isHost
 
 	ws.send(
 		JSON.stringify({

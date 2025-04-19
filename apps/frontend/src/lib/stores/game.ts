@@ -5,6 +5,7 @@ export type PlayerInfo = {
 	id: string;
 	username: string;
 	dannyBucks?: number; // Optional, as not always present
+	isHost?: boolean; // Optional, for future host announcement
 	// Add other relevant player info here
 };
 
@@ -39,6 +40,11 @@ export type RoundResult = {
 	// Optionally add hand details if needed for display
 };
 
+export type SystemMessage = {
+	timestamp: number;
+	text: string;
+};
+
 
 // --- Svelte Writable Stores ---
 
@@ -50,3 +56,4 @@ export const dealerHandStore = writable<DealerHand | null>(null);
 export const gameStateStore = writable<GameState>('Disconnected'); // Initial state
 export const lastResultStore = writable<RoundResult | null>(null);
 export const playerIdStore = writable<string | null>(null); // ADDED: Player ID Store
+export const systemMessagesStore = writable<SystemMessage[]>([]); // ADDED: System messages store
