@@ -244,6 +244,12 @@ These are enhancments that will be done before milestone M5.
 - [x] Issue 8. Fix DB amount not updating properly at the frontend after a bet is made or after a round completes.. Start at backend and make sure commands are supported to add and remove amounts of DB. Then check at front end to make sure stores are being updated. Then check the UI. (Done: 2025-04-17)
 - [ ] Issue 9. Add a dark mode toggle component that uses Tailwind v4's dark mode features. Place the toggle right next to the Pai Gow Poker title on +page.svelte.
 - [ ] Issue 10. Cleanup buttons that are statically present, but enabled/disabled depending on game state.
+- [x] Issue 11. Display round DB change (+/- X) with color coding in PlayerArea. (Done: 2025-04-19)
+- [ ] Issue 12. Error logging. Not sure what happens when some hands get set by a player.
+- [ ] Issue 13. Player state ready with check marks?
+- [ ] Issue 14. System messages not showing every state change
+- [ ] Issue 15. Player area should be manually claned up for buttons.
+- [ ] Issue 16. Error state game recovery so that it doesn't need a server restart.
 
 ## Future Enhancements (Post-MVP)
 
@@ -277,7 +283,6 @@ These are enhancments that will be done before milestone M5.
 -   *(Example)* Biome setup required specific VS Code settings adjustment.
 -   **[x] TODO (Cleanup):** Remove temporary "Place Bet" and "Start Game" buttons added to `apps/frontend/src/routes/+page.svelte` during Task 17 verification. These should be replaced by proper UI elements in Tasks 18 & subsequent UI tasks. (Completed: 2025-04-15)
 -   **[x] TODO (Backend):** Implement handling for the `readyForNextRound` message sent by the frontend after round results are displayed (including Ace-High Push). This should transition the game state back to `Betting`. (Completed: 2025-04-15)
--   **Improvement (Frontend):** Modified `SystemChatBox.svelte` scrolling logic. It now prevents auto-scrolling if the user has scrolled up and displays a "Scroll to Newest" button when new messages arrive while scrolled up. (Completed: 2025-04-19)
 ---
 
 ## Discovered During Work (Completed)
