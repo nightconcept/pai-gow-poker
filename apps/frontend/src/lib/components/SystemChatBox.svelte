@@ -68,7 +68,7 @@
 			showScrollButton = true;
 		} else {
 			// User is near the bottom, scroll automatically
-			scrollToBottom();
+			//scrollToBottom();
 		}
 	}
 
