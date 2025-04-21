@@ -33,6 +33,9 @@ importers:
       '@biomejs/biome':
         specifier: 1.9.4
         version: 1.9.4
+      '@types/express-ws':
+        specifier: ^3.0.5
+        version: 3.0.5
       '@types/node':
         specifier: ^22.14.1
         version: 22.14.1
@@ -837,6 +840,9 @@ packages:
 
   '@types/express-serve-static-core@5.0.6':
     resolution: {integrity: sha512-3xhRnjJPkULekpSzgtoNYYcTWgEZkp4myc+Saevii5JPnHNvHMRlBSHDbs7Bh1iPPoVTERHEZXyhyLbMEsExsA==}
+
+  '@types/express-ws@3.0.5':
+    resolution: {integrity: sha512-lbWMjoHrm/v85j81UCmb/GNZFO3genxRYBW1Ob7rjRI+zxUBR+4tcFuOpKKsYQ1LYTYiy3356epLeYi/5zxUwA==}
 
   '@types/express@5.0.1':
     resolution: {integrity: sha512-UZUw8vjpWFXuDnjFTh7/5c2TWDlQqeXHi6hcN7F2XSVT5P+WmUnnbFS3KA6Jnc6IsEqI2qCVu2bK0R0J4A8ZQQ==}
@@ -2695,6 +2701,12 @@ snapshots:
       '@types/qs': 6.9.18
       '@types/range-parser': 1.2.7
       '@types/send': 0.17.4
+
+  '@types/express-ws@3.0.5':
+    dependencies:
+      '@types/express': 5.0.1
+      '@types/express-serve-static-core': 5.0.6
+      '@types/ws': 8.18.1
 
   '@types/express@5.0.1':
     dependencies:

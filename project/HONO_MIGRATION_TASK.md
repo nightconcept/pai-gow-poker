@@ -24,12 +24,12 @@ This phase focuses exclusively on replacing the underlying server technology whi
     * Run `pnpm add express express-ws @types/express @types/ws` (assuming TypeScript usage based on original PRD structure).
     * **Verify:** Dependencies are added to `apps/backend/package.json` and `pnpm-lock.yaml` is updated. `pnpm install` runs without errors.
 
-2.  **[ ] (AI - Generate Code) Backend: Generate Initial Express App Structure in `index.ts`**
+2.  **[x] (AI - Generate Code) Backend: Generate Initial Express App Structure in `index.ts`**
     * **AI Prompt:** "Generate a basic Express TypeScript application structure in `apps/backend/src/index.ts`. It should import `express`, initialize an app, import and apply `express-ws`, listen on a port (e.g., 8080 or from an environment variable), and include a basic root route (`app.get('/')`) that sends a simple 'Server running' message. Include basic error handling middleware."
     * **(Human) Review & Integrate:** Review the generated code for correctness and integrate it into the existing `index.ts`, potentially commenting out the old `ws` server setup initially.
     * **Verify:** The basic Express server starts using the `dev` script (`pnpm --filter backend run dev`) and responds to HTTP GET requests on `/` via a browser or `curl`.
 
-3.  **[ ] (Human) Backend: Integrate `express-ws` and Define Core WebSocket Route**
+3.  **[x] (Human) Backend: Integrate `express-ws` and Define Core WebSocket Route**
     * Ensure `express-ws` is correctly initialized and applied to the Express app instance (as generated/verified in the previous step).
     * Define the primary WebSocket route, likely `/ws` (or similar): `app.ws('/ws', (ws, req) => { /* Connection logic here */ });`
     * **Verify:** The server still starts. Attempting to connect via a WebSocket client (e.g., browser dev tools, Postman) to the `/ws` endpoint should now establish a connection (even if no logic is inside the handler yet).
@@ -90,7 +90,7 @@ This phase focuses exclusively on replacing the underlying server technology whi
 
 ## Milestones (Migration)
 
--   **[ ] M1.M1: Express Setup Complete:** Tasks M1.1 - M1.3 finished. Basic Express server runs and accepts WebSocket connections.
+-   **[x] M1.M1: Express Setup Complete:** Tasks M1.1 - M1.3 finished. Basic Express server runs and accepts WebSocket connections.
 -   **[ ] M1.M2: Core Logic Migrated:** Tasks M1.4 - M1.5 finished. Existing game logic operates within the Express WebSocket route.
 -   **[ ] M1.M3: Configuration Updated:** Tasks M1.6 - M1.8 finished. Docker, scripts, and tunnel config match the new setup.
 -   **[ ] M1.M4: Migration Verified:** Task M1.9 finished. Full MVP functionality confirmed on the new Express backend. Migration complete.
