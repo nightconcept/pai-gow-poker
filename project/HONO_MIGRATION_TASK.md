@@ -34,10 +34,9 @@ This phase focuses exclusively on replacing the underlying server technology whi
     * Define the primary WebSocket route, likely `/ws` (or similar): `app.ws('/ws', (ws, req) => { /* Connection logic here */ });`
     * **Verify:** The server still starts. Attempting to connect via a WebSocket client (e.g., browser dev tools, Postman) to the `/ws` endpoint should now establish a connection (even if no logic is inside the handler yet).
 
-4.  **[ ] (Human) Backend: Refactor State Management Access**
+4.  **[x] (AI) Backend: Refactor State Management Access**
     * Determine how the existing in-memory state (the single `GameTable` instance holding `Player` objects, deck, game state, etc.) will be accessed within the `app.ws('/ws', ...)` handler function.
-    * *Option A (Simple):* Keep state defined in the top-level scope of `index.ts` if simple.
-    * *Option B (Better):* Encapsulate game state and logic into a separate class or module (e.g., `GameManager.ts`) and pass the `ws` connection into its methods or instantiate it where needed.
+    * Encapsulate game state and logic into a separate class or module (e.g., `GameManager.ts`) and pass the `ws` connection into its methods or instantiate it where needed.
     * Implement the chosen approach.
     * **Verify:** The `GameTable` instance and its methods/properties are accessible within the scope of the `app.ws('/ws', ...)` callback function.
 
@@ -84,6 +83,7 @@ This phase focuses exclusively on replacing the underlying server technology whi
         * DannyBucks balance updates.
         * Broadcasting of game state, player joins/leaves, and results to all clients.
         * Handling player disconnects.
+        * **[x] (AI) Frontend: Update WebSocket connection URL** in `+layout.svelte` to append `/ws` for compatibility with `express-ws` route.
     * **Verify:** The game functions identically to the previous `ws`-based implementation from a user perspective. All MVP features work correctly on the new Express backend.
 
 ---

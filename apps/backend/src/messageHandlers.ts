@@ -1,261 +1,9 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { randomUUID } from 'crypto'; // For generating unique IDs
-import { Player } from './models/Player';
-import { GameTable } from './models/GameTable';
-import type { Card } from './models/Card'; // Import Card type
-import { evaluate5CardHand, evaluate2CardHand, compareEvaluatedHands } from './utils/handEvaluator'; // Import evaluators
-
-/**
- * Defines the structure for messages exchanged via WebSocket.
- */
-interface WebSocketMessage {    
-	type: string;
-	payload: any; // Use 'any' for now, refine with specific types later
-}
-
-// --- Utility Functions ---
-
-/**
-	* Broadcasts a message to all connected clients, optionally excluding one.
-	* @param {WebSocketMessage} message - The message to broadcast.
-	* @param {string} [excludePlayerId] - The ID of the player to exclude.
-	*/
-function broadcast(message: WebSocketMessage, excludePlayerId?: string) {
-	const messageString = JSON.stringify(message);
-	console.log(`Broadcasting (exclude ${excludePlayerId || 'none'}):`, messageString);
-	wss.clients.forEach((client) => {
-		// Check if the client is a PlayerWebSocket and has a playerId
-		const playerWs = client as PlayerWebSocket;
-		if (
-			playerWs.readyState === WebSocket.OPEN &&
-			playerWs.playerId &&
-			playerWs.playerId !== excludePlayerId
-		) {
-			playerWs.send(messageString);
-		} else {
-		          // Add logging here to see why a client might be skipped
-		          console.log(`Skipping broadcast to client: State=${playerWs.readyState}, Has PlayerID=${!!playerWs.playerId}, PlayerID=${playerWs.playerId}, Excluded=${excludePlayerId}`);
-		      }
-	});
-}
-
-// --- End Utility Functions ---
-
-/**
- * Sends the complete current game state to a specific client or broadcasts it.
- * @param {PlayerWebSocket} [targetWs] - The specific client to send to. If undefined, broadcasts to all.
- * @param {string} [messageText] - An optional text message to include in the payload.
- */
-function sendFullGameState(targetWs?: PlayerWebSocket, messageText?: string) {
-	const payload = {
-		gameState: gameTable.gameState,
-		players: Array.from(gameTable.players.values())
-			.filter(p => p.username) // Only include players with usernames
-			.map(p => ({
-				id: p.id,
-				username: p.username,
-				isHost: p.isHost,
-				dannyBucks: p.dannyBucks // Include current balance
-			})),
-		dealerHand: gameTable.dealerHand.dealtCards ? { // Only send dealer hand if it exists
-			revealed: gameTable.dealerHand.dealtCards,
-			highHand: gameTable.dealerHand.highHand,
-			lowHand: gameTable.dealerHand.lowHand,
-			isAceHighPaiGow: gameTable.dealerHand.isAceHighPaiGow,
-		} : null,
-		message: messageText || undefined // Include optional message
-	};
-
-	const message: WebSocketMessage = { type: 'gameStateUpdate', payload };
-
-	if (targetWs) {
-		console.log(`Sending full game state to ${targetWs.playerId}`);
-		if (targetWs.readyState === WebSocket.OPEN) {
-			targetWs.send(JSON.stringify(message));
-		}
-	} else {
-		console.log('Broadcasting full game state update.');
-		broadcast(message); // Use existing broadcast function
-	}
-}
-
-
-const PORT = 8080; // Define the port for the WebSocket server
-
-// Create a new WebSocket server instance
-const wss = new WebSocketServer({ port: PORT });
-
-// --- Game State ---
-// For MVP, create a single game table instance
-const gameTable = new GameTable('main-table');
-console.log(`Game table ${gameTable.id} created.`);
-// --- End Game State ---
-
-console.log(`Backend WebSocket server starting on port ${PORT}...`);
-
-/**
- * Handles server listening event.
- */
-wss.on('listening', () => {
-	console.log(`WebSocket server listening on port ${PORT}`);
-});
-
-/**
- * Handles new client connections.
- */
-// Extend WebSocket type to hold our player ID
-export interface PlayerWebSocket extends WebSocket { // Added export
-	playerId?: string;
-}
-
-wss.on('connection', (ws: PlayerWebSocket) => {
-	// Generate a unique ID for this connection/player
-	const playerId = randomUUID();
-	ws.playerId = playerId; // Store playerId on the WebSocket object
-	console.log(`Client connected with ID: ${playerId}`);
-
-	// Create a new Player instance and add it to the table
-	const player = new Player(playerId, ws);
-	gameTable.addPlayer(player);
-
-	// Send a welcome message including the assigned player ID
-	ws.send(
-		JSON.stringify({
-			type: 'connectionSuccess',
-			payload: {
-				message: 'Welcome to the Pai Gow Poker server!',
-				playerId: playerId, // Send the client their ID
-				tableId: gameTable.id,
-			},
-		}),
-	);
-
-	/**
-	 * Handles messages received from a specific client.
-	 */
-	ws.on('message', (message: Buffer) => {
-		// Ensure we know which player sent the message
-		if (!ws.playerId) {
-			console.error('Received message from connection without playerId.');
-			return;
-		}
-		const currentPlayerId = ws.playerId;
-
-		try {
-			const parsedMessage: WebSocketMessage = JSON.parse(message.toString());
-			console.log(`Received message from ${currentPlayerId}:`, parsedMessage);
-
-			// Route message based on type
-			switch (parsedMessage.type) {
-				case 'setUsername':
-					handleSetUsername(currentPlayerId, parsedMessage, ws);
-					break;
-				case 'startGame': // Add handler for starting the game
-					handleStartGame(currentPlayerId, parsedMessage, ws);
-					break;
-				case 'placeBet': // Add handler for placing bets
-					handlePlaceBet(currentPlayerId, parsedMessage, ws);
-					break;
-				case 'setPlayerHand': // Add handler for setting player hand
-					handleSetPlayerHand(currentPlayerId, parsedMessage, ws);
-					break;
-				case 'requestPlayerList': // Handle request for player list
-					handleRequestPlayerList(currentPlayerId, ws);
-					break;
-				case 'readyForNextRound': // Add handler for ready signal
-					handleReadyForNextRound(currentPlayerId, parsedMessage, ws);
-					break;
-				// Add other message handlers here
-				default:
-					console.warn(`Unknown message type received: ${parsedMessage.type}`); // Changed to warn
-					// DO NOT send an error for unknown types, could be future features or client mistakes
-					// ws.send(
-					// 	JSON.stringify({
-					// 		type: 'error',
-					// 		payload: { message: `Unknown message type: ${parsedMessage.type}` },
-					// 	}),
-					// );
-					// No action needed for unknown types for now
-			}
-
-			// Remove basic echo logic now that routing is in place
-		} catch (error) { // Close the try block here
-			console.error('Failed to parse message or invalid message format:', error);
-			ws.send(
-				JSON.stringify({
-					type: 'error',
-					payload: { message: 'Invalid message format. Please send JSON.' },
-				}),
-			);
-		} // Close the catch block here
-	}); // Close ws.on('message') here
-
-	/**
-		* Handles a specific client disconnecting.
-		*/
-	ws.on('close', () => { // This should be inside wss.on('connection')
-		// Retrieve the playerId associated with this connection
-		const closingPlayerId = ws.playerId;
-		if (closingPlayerId) {
-			console.log(`Client disconnected: ${closingPlayerId}`);
-			const removedPlayer = gameTable.getPlayerByConnectionId(closingPlayerId);
-			const wasHost = removedPlayer?.isHost; // Check if the leaving player was the host
-
-			// Remove the player from the game table (this might reassign host)
-			gameTable.removePlayer(closingPlayerId);
-
-			// Broadcast player left message to remaining clients
-			if (removedPlayer && removedPlayer.username) {
-				broadcast(
-					{
-						type: 'playerLeft',
-						payload: {
-							username: removedPlayer.username,
-							playerId: closingPlayerId,
-						},
-					},
-					closingPlayerId, // Don't send to the disconnecting client
-				);
-			}
-
-			// Always broadcast the updated player list after someone leaves
-			console.log('Player left, broadcasting updated player list.');
-			broadcast({
-				type: 'playerListUpdate',
-				payload: {
-					players: Array.from(gameTable.players.values())
-						.filter(p => p.username) // Only send players with usernames
-						.map(p => ({
-							id: p.id,
-							username: p.username,
-							isHost: p.isHost // Include host status
-						}))
-				}
-			});
-			// Removed the conditional check (if wasHost...)
-		} else {
-			console.log('Client disconnected (unknown ID)');
-		}
-	});
-
-	/**
-	 * Handles errors from a specific client's connection.
-	 */
-	ws.on('error', (error: Error) => { // Add type annotation and ensure inside wss.on('connection')
-		console.error(`WebSocket error for player ${ws.playerId || 'unknown'}:`, error);
-	});
-}); // Close wss.on('connection') here
-
-/**
- * Handles server-level errors.
- */
-wss.on('error', (error) => {
-	console.error('WebSocket Server error:', error);
-});
-
-console.log('WebSocket server setup complete. Waiting for connections...');
-
-// --- Message Handlers ---
+import type { PlayerWebSocket } from './types/websocket';
+import type { WebSocketMessage } from './types/messages';
+import type { Card } from './models/Card';
+import { getGameTable } from './GameManager';
+import { broadcast, sendFullGameState } from './websocketUtils';
+import { evaluate5CardHand, evaluate2CardHand, compareEvaluatedHands } from './utils/handEvaluator';
 
 /**
  * Handles the 'setUsername' message from a client.
@@ -263,7 +11,8 @@ console.log('WebSocket server setup complete. Waiting for connections...');
  * @param {WebSocketMessage} message - The parsed message object.
  * @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
  */
-function handleSetUsername(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+export function handleSetUsername(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+	const gameTable = getGameTable(); // Get game table instance
 	const requestedUsername = message.payload?.username;
 
 	if (typeof requestedUsername !== 'string' || requestedUsername.trim().length === 0) {
@@ -321,10 +70,11 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 		);
 
 		// 2. Send the full current game state to the joining player
-		sendFullGameState(ws); // No extra message needed here, usernameSuccess confirms it
+		sendFullGameState(gameTable, ws); // Pass gameTable
 
 		// 3. Broadcast playerJoined to other clients (still useful for specific join notification)
 		broadcast(
+			gameTable, // Pass gameTable
 			{
 				type: 'playerJoined',
 				payload: { username: trimmedUsername, id: playerId, isHost: player.isHost }, // Include isHost
@@ -334,7 +84,7 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 
 		// 4. Broadcast the updated player list to ALL clients
 		console.log('Broadcasting updated player list after join.');
-		broadcast({
+		broadcast(gameTable, { // Pass gameTable
 			type: 'playerListUpdate',
 			payload: {
 				players: Array.from(gameTable.players.values())
@@ -346,11 +96,6 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 					}))
 			}
 		});
-
-
-		// --- State transition logic removed ---
-		// State should only change based on game actions (betting, starting game),
-		// not just because a player joined. The joining player receives the current state.
 
 	} else {
 		// Send failure response
@@ -369,7 +114,8 @@ function handleSetUsername(playerId: string, message: WebSocketMessage, ws: Play
 	* @param {string} playerId - The ID of the player requesting the list.
 	* @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
 	*/
-function handleRequestPlayerList(playerId: string, ws: PlayerWebSocket) {
+export function handleRequestPlayerList(playerId: string, ws: PlayerWebSocket) {
+	const gameTable = getGameTable(); // Get game table instance
 	console.log(`Received requestPlayerList from ${playerId}`);
 	const playersWithUsernames = Array.from(gameTable.players.values())
 		.filter((p) => p.id !== playerId && p.username) // Filter out self AND ensure username is set
@@ -390,7 +136,8 @@ function handleRequestPlayerList(playerId: string, ws: PlayerWebSocket) {
  * @param {WebSocketMessage} message - The parsed message object.
  * @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
  */
-function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+export function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+	const gameTable = getGameTable(); // Get game table instance
 	const player = gameTable.getPlayerByConnectionId(playerId);
 
 	if (!player || !player.username) {
@@ -423,8 +170,6 @@ function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerW
 	player.currentBet = betAmount;
 	player.dannyBucks -= betAmount;
 
-	// State transition logic removed - state should already be 'Betting'
-
 	console.log(`Player ${playerId} (${player.username}) placed bet of ${betAmount}. Remaining DB: ${player.dannyBucks}`);
 
 	// Send confirmation back to the player
@@ -437,7 +182,7 @@ function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerW
 	}));
 
 	// Broadcast the bet placement to other players
-	broadcast({
+	broadcast(gameTable, { // Pass gameTable
 		type: 'playerBet',
 		payload: {
 			playerId: playerId,
@@ -452,7 +197,7 @@ function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerW
 	// 	.every(p => p.currentBet !== null);
 	// if (allPlayersBet && gameTable.players.size > 0 && gameTable.gameState === 'Betting') {
 	// 	console.log("All active players have placed bets. Starting game automatically...");
-	// 	handleStartGame(playerId, { type: 'startGame', payload: {} }, ws);
+	// 	handleStartGame(playerId, { type: 'startGame', payload: {} }, ws); // Need to adapt this call if used
 	// }
 }
 
@@ -464,7 +209,8 @@ function handlePlaceBet(playerId: string, message: WebSocketMessage, ws: PlayerW
  * @param {WebSocketMessage} message - The parsed message object.
  * @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
  */
-function handleStartGame(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+export function handleStartGame(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+	const gameTable = getGameTable(); // Get game table instance
 	console.log(`Received startGame request from ${playerId}`);
 
 	// Validate game state and sender
@@ -491,7 +237,7 @@ function handleStartGame(playerId: string, message: WebSocketMessage, ws: Player
 		gameTable.gameState = 'Betting';
 		// Reset bets from any previous rounds for all players
 		gameTable.players.forEach(p => p.currentBet = null);
-		broadcast({ type: 'gameStateUpdate', payload: { gameState: gameTable.gameState, message: 'Betting phase started. Please place your bets.' } });
+		broadcast(gameTable, { type: 'gameStateUpdate', payload: { gameState: gameTable.gameState, message: 'Betting phase started. Please place your bets.' } }); // Pass gameTable
 
 	// --- Transition from Betting to Dealing ---
 	} else if (gameTable.gameState === 'Betting') {
@@ -504,13 +250,14 @@ function handleStartGame(playerId: string, message: WebSocketMessage, ws: Player
 			console.log(`Attempting to start new round with ${playersReady.length} players who have bet...`);
 			// Transition state *before* dealing
 			gameTable.gameState = 'Dealing';
-			broadcast({ type: 'gameStateUpdate', payload: { gameState: gameTable.gameState, message: 'Dealing cards...' } });
+			broadcast(gameTable, { type: 'gameStateUpdate', payload: { gameState: gameTable.gameState, message: 'Dealing cards...' } }); // Pass gameTable
 
 			// Deal cards etc.
 			gameTable.startNewRound(); // This will shuffle, deal, set dealer hand, and change state further
 
 			// Broadcast the full updated game state using the helper function
 			sendFullGameState(
+				gameTable, // Pass gameTable
 				undefined, // Broadcast to all
 				gameTable.dealerHand.isAceHighPaiGow
 					? 'Dealer has Ace-High Pai Gow! Round is a push.'
@@ -528,7 +275,6 @@ function handleStartGame(playerId: string, message: WebSocketMessage, ws: Player
 	}
 }
 
-// --- End Message Handlers ---
 
 /**
  * Handles the 'setPlayerHand' message from a client.
@@ -536,7 +282,8 @@ function handleStartGame(playerId: string, message: WebSocketMessage, ws: Player
  * @param {WebSocketMessage} message - The parsed message object.
  * @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
  */
-function handleSetPlayerHand(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+export function handleSetPlayerHand(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+	const gameTable = getGameTable(); // Get game table instance
 	const player = gameTable.getPlayerByConnectionId(playerId);
 
 	if (!player || !player.username || !player.currentHand) {
@@ -612,7 +359,7 @@ function handleSetPlayerHand(playerId: string, message: WebSocketMessage, ws: Pl
 	}));
 
 	// Broadcast that the player has set their hand (don't reveal hand yet)
-	broadcast({
+	broadcast(gameTable, { // Pass gameTable
 		type: 'playerSetHand',
 		payload: { playerId: playerId, username: player.username }
 	}, playerId);
@@ -623,11 +370,8 @@ function handleSetPlayerHand(playerId: string, message: WebSocketMessage, ws: Pl
 
 	if (allPlayersReady && activePlayers.length > 0) {
 		console.log("All active players have set their hands. Proceeding to showdown...");
-		// Trigger the next phase (comparison/outcome) - This will be handled by Task 9 logic
-		// For now, just log and maybe change state (though Task 9 will handle state transition)
-		gameTable.gameState = 'Showdown'; // Set state temporarily before calling handler
-		broadcast({ type: 'gameStateUpdate', payload: { gameState: gameTable.gameState, message: 'All hands set. Revealing results...' } });
-		handleShowdown(); // Call the next step function
+		// Trigger the next phase (comparison/outcome)
+		handleShowdown(); // Call the next step function (defined below)
 	}
 }
 
@@ -637,7 +381,8 @@ function handleSetPlayerHand(playerId: string, message: WebSocketMessage, ws: Pl
 	* @param {WebSocketMessage} message - The parsed message object.
 	* @param {PlayerWebSocket} ws - The WebSocket connection of the sender.
 	*/
-function handleReadyForNextRound(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+export function handleReadyForNextRound(playerId: string, message: WebSocketMessage, ws: PlayerWebSocket) {
+	const gameTable = getGameTable(); // Get game table instance
 	const player = gameTable.getPlayerByConnectionId(playerId);
 
 	if (!player || !player.username) {
@@ -657,12 +402,6 @@ function handleReadyForNextRound(playerId: string, message: WebSocketMessage, ws
 
 	// Send confirmation back to player (optional)
 	ws.send(JSON.stringify({ type: 'readyConfirm', payload: { message: 'Ready status confirmed.' } }));
-
-	// Broadcast that the player is ready (optional, can be noisy)
-	// broadcast({
-	// 	type: 'playerReady',
-	// 	payload: { playerId: playerId, username: player.username }
-	// }, playerId);
 
 	// --- Check if all active players are ready ---
 	// Active players are those with a username and enough funds to potentially bet (or just > 0 DB)
@@ -699,20 +438,20 @@ function handleReadyForNextRound(playerId: string, message: WebSocketMessage, ws
 		console.log(`--- New Round Ready. Game state transitioned to: ${gameTable.gameState} ---`);
 
 		// Broadcast the full game state update using the helper function
-		sendFullGameState(undefined, 'Place your bets for the next round!');
+		sendFullGameState(gameTable, undefined, 'Place your bets for the next round!'); // Pass gameTable
 
 	} else {
 		console.log(`Waiting for other players to be ready. Total active: ${activePlayers.length}, Ready: ${activePlayers.filter(p => p.isReadyForNextRound).length}`);
-		// Optionally inform the player who just readied how many more are needed
-		// ws.send(JSON.stringify({ type: 'waitingForOthersReady', payload: { needed: activePlayers.length - activePlayers.filter(p => p.isReadyForNextRound).length } }));
 	}
 }
 
 
 /**
 	* Handles the showdown phase: comparing hands, determining outcomes, updating balances.
+	* Note: This function doesn't take ws/playerId/message as it's triggered internally.
 	*/
-function handleShowdown() {
+export function handleShowdown() {
+	const gameTable = getGameTable(); // Get game table instance
 	console.log(`--- Starting Showdown for table ${gameTable.id} ---`);
 	gameTable.gameState = 'Showdown'; // Ensure state is correct
 
@@ -724,9 +463,8 @@ function handleShowdown() {
 
 	if (!dealer.highHand || !dealer.lowHand) {
 		console.error("CRITICAL: Dealer hands are not set during showdown.");
-		// Reset state? Broadcast error?
-		gameTable.gameState = 'WaitingForPlayers';
-		broadcast({ type: 'error', payload: { message: 'Internal server error: Dealer hand missing during showdown.' } });
+		gameTable.gameState = 'WaitingForPlayers'; // Reset state
+		broadcast(gameTable, { type: 'error', payload: { message: 'Internal server error: Dealer hand missing during showdown.' } }); // Pass gameTable
 		return;
 	}
 
@@ -760,7 +498,6 @@ function handleShowdown() {
 		activePlayers.forEach(player => {
 			if (!player.setHighHand || !player.setLowHand) {
 				console.warn(`Player ${player.id} (${player.username}) reached showdown without set hands. Skipping.`);
-				// This shouldn't happen if handleSetPlayerHand logic is correct
 				results.push({
 					playerId: player.id,
 					username: player.username,
@@ -836,7 +573,7 @@ function handleShowdown() {
 	}
 
 	// --- Broadcast Results ---
-	broadcast({
+	broadcast(gameTable, { // Pass gameTable
 		type: 'roundResult',
 		payload: {
 			results: results,
@@ -852,23 +589,7 @@ function handleShowdown() {
 
 	// Transition state to indicate round is over, waiting for players to ready up
 	gameTable.gameState = 'RoundOver';
-	// Note: We don't broadcast the full state here, as the 'roundResult' message
-	// already contains the necessary outcome details. The frontend should transition
-	// based on receiving 'roundResult' and then wait for the 'Betting' state update
-	// triggered by handleReadyForNextRound.
-	console.log(`Showdown complete. Game state transitioned to: ${gameTable.gameState}`);
-
-	// Reset dealer state
-	gameTable.dealerHand = {
-		dealtCards: null,
-		highHand: null,
-		lowHand: null,
-		isAceHighPaiGow: false,
-	};
-
-	// Transition to RoundOver state, waiting for players to signal readiness
-	gameTable.gameState = 'RoundOver';
-	broadcast({
+	broadcast(gameTable, { // Pass gameTable
 		type: 'gameStateUpdate',
 		payload: {
 			gameState: gameTable.gameState,

@@ -17,7 +17,7 @@
 		const status = get(connectionStatus);
 		if (status === 'closed' || status === 'error') {
 			console.log('Layout attempting WebSocket connection to:', WEBSOCKET_URL);
-			connectWebSocket(WEBSOCKET_URL);
+			connectWebSocket(WEBSOCKET_URL + '/ws'); // Append /ws for express-ws route
 		} else {
 			console.log('Layout: WebSocket connection already exists or is connecting (Status:', status + ')');
 		}
