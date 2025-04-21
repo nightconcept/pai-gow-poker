@@ -27,14 +27,14 @@ These tasks focus on replacing the existing Node.js `ws` server with a Fastify a
 
 ### Migration Sub-Phase 1: Setup & Basic Server
 
-1.  **[ ] Backend (Human): Install Fastify & Dependencies**
+1.  **[x] Backend (Human): Install Fastify & Dependencies**
     * Navigate to `apps/backend`.
     * Run `pnpm add fastify @fastify/websocket`.
     * Optionally, review if the direct `ws` dependency can be removed (likely yes, as `@fastify/websocket` uses it internally). Update `package.json` accordingly.
     * Run `pnpm install` from the root directory.
     * **Verify:** Dependencies are listed in `apps/backend/package.json` and installed in `node_modules`.
 
-2.  **[ ] Backend (AI/Human): Initialize Basic Fastify Server**
+2.  **[x] Backend (AI/Human): Initialize Basic Fastify Server**
     * **(AI):** Generate the initial structure for `apps/backend/src/index.ts` (or rename existing entry point). This should:
         * Import `fastify`.
         * Import `@fastify/websocket`.
