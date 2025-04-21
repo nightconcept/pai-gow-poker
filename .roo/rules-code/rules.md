@@ -1,6 +1,6 @@
 ### 🔄 Project Awareness & Context
 - **Always read `PLANNING.md`** at the start of a new conversation to understand the project's architecture, goals, style, and constraints.
-- **Check `HONO_MIGRATION_TASK.md`** before starting a new task. If the task isn’t listed, add it with a brief description and today's date.
+- **Check `TASK.md`** before starting a new task. If the task isn’t listed, add it with a brief description and today's date.
 - **Use consistent naming conventions, file structure, and architecture patterns** as described in `PLANNING.md`.
 
 ### 🧱 Code Structure & Modularity
@@ -18,8 +18,8 @@
     - 1 failure case
 
 ### ✅ Task Completion
-- **Mark completed tasks in `HONO_MIGRATION_TASK.md`** immediately after finishing them.
-- Add new sub-tasks or TODOs discovered during development to `HONO_MIGRATION_TASK.md` under a “Discovered During Work” section.
+- **Mark completed tasks in `TASK.md`** immediately after finishing them.
+- Add new sub-tasks or TODOs discovered during development to `TASK.md` under a “Discovered During Work” section.
 
 ### 📎 Style & Conventions
 - **Use TypeScript** as the primary language with JavaScript as an acceptable fallback.
@@ -46,5 +46,5 @@
 - **Never assume missing context. Ask questions if uncertain.**
 - **Never hallucinate libraries or functions** – only use known, verified  packages.
 - **Always confirm file paths and module names** exist before referencing them in code or tests.
-- **Never delete or overwrite existing code** unless explicitly instructed to or if part of a task from `HONO_MIGRATION_TASK.md`.
+- **Never delete or overwrite existing code** unless explicitly instructed to or if part of a task from `TASK.md`.
 - If you think a certain task is better suited for a more powerful model, suggest it as the first thing in big bold letters so the user knows.
