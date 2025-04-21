@@ -47,3 +47,4 @@
 - **Never hallucinate libraries or functions** – only use known, verified  packages.
 - **Always confirm file paths and module names** exist before referencing them in code or tests.
 - **Never delete or overwrite existing code** unless explicitly instructed to or if part of a task from `TASK.md`.
+- If you think a certain task is better suited for a more powerful model, suggest it as the first thing in big bold letters so the user knows.
