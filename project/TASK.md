@@ -247,7 +247,8 @@ These are enhancments that will be done before milestone M5.
 - [x] Issue 11. Display round DB change (+/- X) with color coding in PlayerArea. (Done: 2025-04-19)
 - [ ] Issue 12. Error logging. Not sure what happens when some hands get set by a player.
 - [ ] Issue 13. Player state ready with check marks?
-- [ ] Issue 14. System messages not showing every state change
+- [x] Issue 14. System messages not showing every state change
+  - [x] **Fix:** Subscribe `SystemChatBox.svelte` to `gameStateStore` and add phase messages. (Completed: 2025-04-20)
 - [ ] Issue 15. Player area should be manually claned up for buttons.
 - [ ] Issue 16. Error state game recovery so that it doesn't need a server restart.
 
