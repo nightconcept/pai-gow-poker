@@ -19,7 +19,7 @@
 
 This phase focuses exclusively on replacing the underlying server technology while preserving the existing MVP game logic and functionality.
 
-1.  **[ ] (Human) Backend: Install Express & `express-ws` Dependencies**
+1.  **[x] (Human) Backend: Install Express & `express-ws` Dependencies**
     * Navigate to the `apps/backend` directory.
     * Run `pnpm add express express-ws @types/express @types/ws` (assuming TypeScript usage based on original PRD structure).
     * **Verify:** Dependencies are added to `apps/backend/package.json` and `pnpm-lock.yaml` is updated. `pnpm install` runs without errors.
