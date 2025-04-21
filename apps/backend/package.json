@@ -14,11 +14,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@hono/node-server": "^1.14.1",
-    "@hono/node-ws": "^1.1.1",
-    "hono": "^4.7.7"
-  },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@types/node": "^22.14.1",
@@ -26,5 +21,9 @@
     "tsx": "^4.19.3",
     "typescript": "^5.0.0",
     "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.0.2",
+    "fastify": "^5.3.2"
   }
 }
