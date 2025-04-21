@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { systemMessagesStore, type SystemMessage, type GameState } from '$lib/stores/game';
-	import { onMount, onDestroy, tick } from 'svelte';
-	import { writable, get } from 'svelte/store';
+	import { systemMessagesStore, gameStateStore, type SystemMessage, type GameState } from '$lib/stores/game';
+	import { tick } from 'svelte';
+	// Removed unused: onMount, onDestroy, writable, get
 
 	// --- Constants ---
 	const phaseMessages: Partial<Record<GameState, string>> = {
@@ -61,14 +61,34 @@
 
 	// --- Lifecycle & Effects ---
 
-	// React to new messages
-	$: if ($systemMessagesStore.length && chatBoxElement) {
-		if (isUserScrolledUp) {
-			// User is scrolled up, show the button instead of scrolling
-			showScrollButton = true;
-		} else {
-			// User is near the bottom, scroll automatically
-			//scrollToBottom();
+	// React to game state changes to add phase messages
+	$: {
+		const currentState = $gameStateStore;
+		const messageText = phaseMessages[currentState];
+
+		if (messageText) {
+			// Check if the *very last* message is the same as the one we're about to add.
+			// This prevents adding duplicates if the state changes but the message text is the same,
+			// or if the state rapidly changes back and forth resulting in the same message.
+			const lastMessage = $systemMessagesStore[$systemMessagesStore.length - 1];
+			if (!lastMessage || lastMessage.text !== messageText) {
+				const newMessage: SystemMessage = { text: messageText, timestamp: Date.now() };
+				systemMessagesStore.update((messages) => [...messages, newMessage]);
+
+				// Now handle scrolling based on the *newly added* message
+				// Need a tick to allow the DOM to update with the new message before scrolling
+				tick().then(() => {
+					if (chatBoxElement) {
+						if (isUserScrolledUp) {
+							// User is scrolled up, show the button instead of scrolling
+							showScrollButton = true;
+						} else {
+							// User is near the bottom, scroll automatically
+							scrollToBottom(); // Use existing function which scrolls to bottom
+						}
+					}
+				});
+			}
 		}
 	}
 
